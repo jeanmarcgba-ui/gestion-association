@@ -1,0 +1,3181 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gestion Association</title>
+<link rel="icon" id="favicon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%2321503C%22/><text x=%2250%22 y=%2266%22 font-size=%2255%22 text-anchor=%22middle%22 fill=%22%23C9932F%22 font-family=%22serif%22>A</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#C7CBD1;
+  --surface:#FFFFFF;
+  --ink:#1B2B22;
+  --ink-soft:#5B6B60;
+  --primary:#21503C;
+  --primary-light:#3C7A5C;
+  --primary-dark:#153327;
+  --navy:#0E1F3B;
+  --navy-light:#1B3560;
+  --navy-soft:#2A4A80;
+  --accent:#C9932F;
+  --accent-soft:#F0E1BE;
+  --danger:#B3432B;
+  --border:#D3D7DC;
+  --radius:14px;
+  --shadow:0 4px 18px rgba(14,31,59,0.12);
+  --font-display:'Fraunces',serif;
+  --font-body:'Work Sans',sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--ink);
+  min-height:100vh;
+  min-height:100dvh;
+  -webkit-tap-highlight-color:transparent;
+}
+h1,h2,h3,.display{font-family:var(--font-display);color:var(--primary-dark);}
+button{font-family:var(--font-body);cursor:pointer;}
+a{color:inherit;}
+img{max-width:100%;display:block;}
+::selection{background:var(--accent-soft);}
+
+/* ---------- Layout shells ---------- */
+#app{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;}
+.hidden{display:none !important;}
+
+/* ---------- Login ---------- */
+.login-screen{
+  min-height:100vh;min-height:100dvh;
+  display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 15% 10%, #1B3560 0%, var(--navy) 55%, #060F1F 100%);
+  padding:24px;
+  position:relative;
+  overflow:hidden;
+}
+.login-screen::before{
+  content:"";position:absolute;top:-120px;right:-120px;width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle, rgba(201,147,47,0.18) 0%, transparent 70%);
+}
+.login-screen::after{
+  content:"";position:absolute;bottom:-140px;left:-100px;width:320px;height:320px;border-radius:50%;
+  background:radial-gradient(circle, rgba(33,80,60,0.35) 0%, transparent 70%);
+}
+.login-card{
+  background:var(--surface);
+  width:100%;max-width:380px;
+  border-radius:20px;
+  padding:36px 30px 30px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.45);
+  text-align:center;
+  position:relative;
+  z-index:1;
+  border-top:4px solid var(--accent);
+}
+.login-emblem{
+  width:68px;height:68px;border-radius:18px;margin:0 auto 18px;
+  background:var(--navy);display:flex;align-items:center;justify-content:center;
+  overflow:hidden;box-shadow:0 0 0 3px var(--accent-soft);
+}
+.login-emblem img{width:100%;height:100%;object-fit:cover;}
+.login-emblem svg{width:34px;height:34px;}
+.login-card h1{font-size:22px;margin:0 0 4px;}
+.login-card p.sub{color:var(--ink-soft);font-size:13.5px;margin:0 0 26px;}
+.field{text-align:left;margin-bottom:14px;}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;letter-spacing:.02em;text-transform:uppercase;}
+.field input,.field select,.field textarea{
+  width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border);
+  font-family:var(--font-body);font-size:15px;background:#FCFBF8;color:var(--ink);
+  transition:border-color .15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--primary-light);}
+.field small.hint{display:block;margin-top:5px;color:var(--ink-soft);font-size:11.5px;}
+.btn{
+  border:none;border-radius:10px;padding:12px 20px;font-weight:600;font-size:14.5px;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  transition:transform .12s, box-shadow .12s, background .15s;
+}
+.btn:active{transform:scale(0.97);}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 3px 10px rgba(33,80,60,0.3);}
+.btn-primary:hover{background:var(--primary-light);}
+.btn-accent{background:var(--accent);color:#3A2A05;}
+.btn-ghost{background:transparent;color:var(--primary);border:1.5px solid var(--border);}
+.btn-danger{background:var(--danger);color:#fff;border:none;}
+.btn-danger:hover{background:#C24E33;}
+.btn-edit{background:#2B6CB0;color:#fff;border:none;}
+.btn-edit:hover{background:#3579C4;}
+.btn-sm{padding:7px 13px;font-size:12.5px;}
+.btn-navy{background:var(--navy);color:#fff;}
+.btn-navy:hover{background:var(--navy-light);}
+.btn-beige{background:var(--accent-soft);color:#5B4A1E;}
+.btn-beige:hover{background:#E9D6A3;}
+.btn-block{width:100%;}
+.login-error{color:var(--danger);font-size:13px;margin-top:10px;min-height:16px;}
+.login-foot{margin-top:22px;font-size:11.5px;color:var(--ink-soft);}
+
+/* ---------- Locked screen ---------- */
+.lock-screen{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:var(--primary-dark);padding:24px;text-align:center;}
+.lock-card{background:var(--surface);border-radius:20px;padding:40px 30px;max-width:420px;}
+.lock-card h1{font-size:24px;}
+.lock-card p{color:var(--ink-soft);font-size:14.5px;line-height:1.6;}
+
+/* ---------- Shell (post-login) ---------- */
+.topbar{
+  position:sticky;top:0;z-index:40;
+  background:var(--navy);border-bottom:1px solid var(--navy-light);
+  display:flex;align-items:center;gap:12px;padding:12px 18px;
+  padding-top:calc(12px + env(safe-area-inset-top));
+  color:#fff;
+}
+.topbar .brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0;}
+.topbar .brand-logo{width:36px;height:36px;border-radius:9px;background:#fff;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.topbar .brand-logo img{width:100%;height:100%;object-fit:cover;}
+.topbar .brand-name{font-family:var(--font-display);font-weight:600;font-size:16.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;}
+.topbar .menu-btn{display:none;background:none;border:none;padding:8px;color:#fff;}
+.user-pill{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.12);border-radius:30px;padding:5px 12px 5px 5px;font-size:13px;font-weight:600;flex-shrink:0;color:#fff;}
+.user-pill .dot{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#3A2A05;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+.topbar .btn-ghost{background:rgba(255,255,255,0.1);color:#fff;border:1.5px solid rgba(255,255,255,0.25);}
+.btn-topbar-sync,.btn-topbar-logout{
+  padding:9px 14px;border:none;font-weight:600;font-size:13px;
+}
+.btn-topbar-sync{background:#2B6CB0;color:#fff;}
+.btn-topbar-sync:hover{background:#3579C4;}
+.btn-topbar-logout{background:var(--danger);color:#fff;}
+.btn-topbar-logout:hover{background:#C24E33;}
+.btn-topbar-sync svg,.btn-topbar-logout svg{width:16px;height:16px;flex-shrink:0;}
+.btn-label{white-space:nowrap;}
+@media (max-width:600px){
+  .btn-label{display:none;}
+  .btn-topbar-sync,.btn-topbar-logout{padding:9px 11px;}
+}
+.topbar .btn-ghost:hover{background:rgba(255,255,255,0.18);}
+
+.shell{display:flex;flex:1;min-height:0;}
+.sidenav{
+  width:230px;flex-shrink:0;background:var(--navy);border-right:1px solid var(--navy-light);
+  padding:18px 12px;display:flex;flex-direction:column;gap:2px;
+}
+.sidenav a{
+  display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
+  font-size:14px;font-weight:500;color:rgba(255,255,255,0.65);text-decoration:none;
+  position:relative;
+}
+.sidenav a svg{width:18px;height:18px;flex-shrink:0;}
+.sidenav a.active{background:var(--accent);color:#3A2A05;}
+.sidenav a:not(.active):hover{background:rgba(255,255,255,0.08);color:#fff;}
+.nav-badge{
+  margin-left:auto;background:var(--danger);color:#fff;font-size:10.5px;font-weight:700;
+  min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 5px;
+}
+.bottomnav a{position:relative;}
+.bottomnav a .nav-badge{position:absolute;top:2px;right:10px;margin-left:0;}
+.sidenav .divider{height:1px;background:var(--navy-light);margin:10px 4px;}
+.sidenav .section-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.45);padding:10px 12px 4px;font-weight:700;}
+
+main{flex:1;min-width:0;padding:26px 30px 60px;overflow-y:auto;}
+.page-head{margin-bottom:22px;}
+.page-head h1{font-size:25px;margin:0 0 4px;}
+.page-head p{color:var(--ink-soft);margin:0;font-size:14px;}
+
+.welcome-banner{
+  background:linear-gradient(120deg, var(--primary-dark) 0%, var(--primary) 100%);
+  border-radius:var(--radius);
+  padding:26px 28px;
+  margin-bottom:22px;
+  color:#fff;
+  position:relative;
+  overflow:hidden;
+}
+.welcome-banner h1{color:#fff;margin:0 0 6px;}
+.welcome-banner p{color:rgba(255,255,255,0.82);margin:0;font-size:14px;}
+.welcome-banner::after{
+  content:"";position:absolute;top:-40px;right:-40px;width:150px;height:150px;border-radius:50%;
+  background:rgba(255,255,255,0.06);
+}
+
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin-bottom:18px;}
+.grid{display:grid;gap:16px;}
+.grid-2{grid-template-columns:1fr 1fr;}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.stat{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px;}
+.stat .n{font-family:var(--font-display);font-size:30px;color:var(--primary);font-weight:600;}
+.stat .l{font-size:12.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
+
+/* Member card / signature element */
+.member-card{
+  background:linear-gradient(135deg,#fff 0%, #FBF9F3 100%);
+  border:1px solid var(--border);border-radius:16px;padding:16px;
+  display:flex;gap:14px;align-items:center;cursor:pointer;transition:box-shadow .15s, transform .15s;
+  position:relative;overflow:hidden;
+}
+.member-card:hover{box-shadow:0 8px 22px rgba(27,43,34,0.12);transform:translateY(-2px);}
+.member-card::after{
+  content:"";position:absolute;top:0;right:0;bottom:0;width:6px;background:var(--accent);
+}
+.member-photo{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--bg);flex-shrink:0;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--border);}
+.member-photo.placeholder{display:flex;align-items:center;justify-content:center;color:var(--primary);font-family:var(--font-display);font-weight:600;font-size:18px;}
+.member-info{min-width:0;flex:1;}
+.member-info .name{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.member-info .role{font-size:12.5px;color:var(--ink-soft);}
+.badge{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.02em;}
+.badge-ok{background:#E3EEE6;color:var(--primary);}
+.badge-warn{background:#FBEAD9;color:#95491A;}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px;}
+.search-input{flex:1;min-width:180px;}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+table th{text-align:left;font-size:11.5px;text-transform:uppercase;color:var(--ink-soft);padding:8px 10px;border-bottom:2px solid var(--border);}
+table td{padding:10px;border-bottom:1px solid var(--border);}
+table tr:hover td{background:var(--bg);}
+
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--primary-dark);color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.25);z-index:100;opacity:0;pointer-events:none;transition:all .25s;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,36,27,0.55);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px;}
+.modal{background:var(--surface);border-radius:18px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;padding:26px;}
+.modal h2{margin-top:0;font-size:19px;}
+
+.file-drop{border:2px dashed var(--border);border-radius:12px;padding:16px;text-align:center;font-size:13px;color:var(--ink-soft);cursor:pointer;position:relative;}
+.file-drop.has-file{border-color:var(--primary-light);background:var(--bg);}
+.file-drop input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.file-thumb{width:70px;height:70px;object-fit:cover;border-radius:10px;margin:0 auto 6px;}
+#dropProfilePhoto .file-thumb{width:20px;height:20px;border-radius:50%;margin:0;display:inline-block;vertical-align:middle;}
+
+.summary-block{margin-bottom:18px;}
+.summary-block h3{font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:var(--primary);border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:10px;}
+.summary-row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;border-bottom:1px dashed #EEEBE0;}
+.summary-row .k{color:var(--ink-soft);}
+.summary-row .v{font-weight:600;text-align:right;}
+
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap;}
+.tabs button{background:none;border:none;padding:10px 16px;font-size:14px;font-weight:600;color:var(--ink-soft);border-bottom:2px solid transparent;}
+.tabs button.active{color:var(--primary);border-color:var(--primary);}
+
+.locked-banner{background:#FBEAD9;color:#1B2B22;padding:10px 16px;border-radius:10px;font-size:13.5px;margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+
+.options-gate{max-width:400px;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.options-gate-head{
+  background:linear-gradient(135deg, var(--navy) 0%, #16294D 100%);
+  padding:28px 26px 24px;text-align:center;color:#fff;
+}
+.options-gate-icon{width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.1);box-shadow:0 0 0 3px var(--accent-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:var(--accent);}
+.options-gate-icon svg{width:24px;height:24px;}
+.options-gate-head h2{margin:0 0 4px;font-size:18px;color:#fff;}
+.options-gate-head p{margin:0;font-size:13px;color:rgba(255,255,255,0.7);}
+.options-gate-body{background:var(--surface);padding:24px 26px 26px;}
+
+/* Bottom nav (mobile) */
+.bottomnav{display:none;position:sticky;bottom:0;background:var(--navy);border-top:1px solid var(--navy-light);padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:40;}
+.bottomnav-inner{display:flex;overflow-x:auto;gap:2px;}
+.bottomnav a{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 12px;font-size:10.5px;color:rgba(255,255,255,0.6);text-decoration:none;font-weight:600;min-width:64px;}
+.bottomnav a.active{color:var(--accent);}
+.bottomnav a svg{width:20px;height:20px;}
+
+@media (max-width:880px){
+  .sidenav{display:none;}
+  .topbar .menu-btn{display:block;}
+  main{padding:18px 14px 90px;}
+  .grid-2,.grid-3{grid-template-columns:1fr;}
+  .bottomnav{display:block;}
+}
+.sidenav.drawer-open{
+  display:flex;position:fixed;top:0;left:0;bottom:0;z-index:60;box-shadow:0 0 0 100vmax rgba(0,0,0,0.4);
+  padding-top:calc(18px + env(safe-area-inset-top));
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast"></div>
+<script>
+/* =========================================================
+   Application de Gestion d'Association — Phase 1
+   Connexion, Accueil, Gestion des membres, Options
+   Stockage local (localStorage) — prêt pour bascule Supabase
+   ========================================================= */
+
+const LS = {
+  settings: 'aa_settings',
+  users: 'aa_users',
+  members: 'aa_members',
+  session: 'aa_session',
+  accounting: 'aa_accounting',
+  news: 'aa_news',
+  forum: 'aa_forum',
+  events: 'aa_events',
+  gallery: 'aa_gallery',
+  documents_store: 'aa_documents',
+  presence: 'aa_presence',
+  payments: 'aa_payments',
+  campaigns: 'aa_campaigns',
+  donations: 'aa_donations',
+  products: 'aa_products',
+  orders: 'aa_orders'
+};
+
+const ICONS = {
+  home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>`,
+  members: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5"/><circle cx="17" cy="7" r="2.6"/><path d="M15.5 13.6c2.9.4 5 2.9 5 6.4"/></svg>`,
+  wallet: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/><circle cx="17" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg>`,
+  chat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a8 8 0 1 1 3.3 6.5L3 20l1.3-3.6A7.9 7.9 0 0 1 3 12Z"/></svg>`,
+  calendar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`,
+  news: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>`,
+  gallery: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="M21 16l-5.5-5.5L3 19"/></svg>`,
+  docs: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2.5h9l4 4V21a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z"/><path d="M14.5 2.5V7h4.5"/></svg>`,
+  shop: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h16l-1.3 11.2a1.5 1.5 0 0 1-1.5 1.3H6.8a1.5 1.5 0 0 1-1.5-1.3L4 8Z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/></svg>`,
+  gift: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="9" width="18" height="12" rx="1.5"/><path d="M3 13h18M12 9v12"/><path d="M12 9C9 9 8 6.7 8 5.5A2.5 2.5 0 0 1 12 4a2.5 2.5 0 0 1 4 1.5C16 6.7 15 9 12 9Z"/></svg>`,
+  options: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V20a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1Z"/></svg>`,
+  bell: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>`,
+  logout: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>`,
+  sync: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11A8 8 0 0 0 5.7 6.3L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.7L21 15"/><path d="M21 20v-5h-5"/></svg>`,
+  mic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5M8.5 21.5h7"/></svg>`,
+  stop: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`,
+  menu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`,
+  plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>`,
+  pdf: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2.5h9l4 4V21a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z"/><path d="M8.5 17v-4.2h1.1c.9 0 1.5.6 1.5 1.5v1.2c0 .9-.6 1.5-1.5 1.5H8.5Zm5-4.2h1.8M13.5 17v-4.2M17 17v-4.2h1.6"/></svg>`,
+  search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`,
+  lock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5"/></svg>`,
+  user: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-4.1 3.4-7.5 7.5-7.5s7.5 3.4 7.5 7.5"/></svg>`,
+  trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7M6 7l1 13.5A1.5 1.5 0 0 0 8.5 22h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg>`,
+};
+
+/* ---------------- Store helpers ---------------- */
+// Stockage sécurisé : utilise localStorage si disponible, sinon un repli en mémoire
+// (évite une page blanche si le navigateur bloque localStorage, ex. certains cas file://)
+const memoryStore = {};
+let storageAvailable = true;
+try{
+  const testKey = '__aa_test__';
+  localStorage.setItem(testKey, '1');
+  localStorage.removeItem(testKey);
+}catch(e){
+  storageAvailable = false;
+  console.warn('localStorage indisponible, utilisation d\'un stockage temporaire en mémoire. Les données ne seront pas conservées après fermeture de la page.');
+}
+
+function loadJSON(key, fallback){
+  try{
+    // Priorité au repli mémoire pour cette clé précise (utilisé si l'enregistrement
+    // dans localStorage a échoué, ex. quota dépassé par des photos/documents volumineux)
+    if(memoryStore[key] !== undefined) return JSON.parse(memoryStore[key]);
+    if(storageAvailable){
+      const v = localStorage.getItem(key);
+      return v ? JSON.parse(v) : fallback;
+    }
+    return fallback;
+  }catch(e){ return fallback; }
+}
+function saveJSON(key, val, fromRemote){
+  let quotaExceeded = false;
+  try{
+    if(storageAvailable){
+      localStorage.setItem(key, JSON.stringify(val));
+      delete memoryStore[key]; // l'enregistrement a réussi : on retire l'éventuel repli précédent
+    }
+    else{ memoryStore[key] = JSON.stringify(val); }
+  }catch(e){
+    memoryStore[key] = JSON.stringify(val);
+    quotaExceeded = true;
+    console.warn('Stockage local plein, données conservées temporairement en mémoire uniquement :', key, e);
+  }
+
+  if(quotaExceeded){
+    toast("Stockage du navigateur plein : cet élément n'a pas pu être enregistré durablement. Pensez à libérer de l'espace (ex. supprimer d'anciennes photos) ou synchronisez rapidement avec Supabase.");
+  }
+
+  if(!fromRemote && typeof SYNC_KEYS !== 'undefined' && SYNC_KEYS.includes(key)){
+    const ts = new Date().toISOString();
+    setLocalTimestamp(key, ts);
+    supabasePush(key, val, ts);
+  }
+}
+
+function getSettings(){ return loadJSON(LS.settings, null); }
+function setSettings(s, skipSync){ saveJSON(LS.settings, s, skipSync); }
+function getUsers(){ return loadJSON(LS.users, []); }
+function setUsers(u, skipSync){ saveJSON(LS.users, u, skipSync); }
+function getMembers(){ return loadJSON(LS.members, []); }
+function setMembers(m){ saveJSON(LS.members, m); }
+function getAccounting(){ return loadJSON(LS.accounting, []); }
+function setAccounting(a){ saveJSON(LS.accounting, a); }
+function getNews(){ return loadJSON(LS.news, []); }
+function setNews(n){ saveJSON(LS.news, n); }
+function getForum(){ return loadJSON(LS.forum, []); }
+function setForum(f){ saveJSON(LS.forum, f); }
+function getEvents(){ return loadJSON(LS.events, []); }
+function setEvents(e){ saveJSON(LS.events, e); }
+function getGallery(){ return loadJSON(LS.gallery, []); }
+function setGallery(g){ saveJSON(LS.gallery, g); }
+function getDocumentsStore(){ return loadJSON(LS.documents_store, []); }
+function setDocumentsStore(d){ saveJSON(LS.documents_store, d); }
+function getPayments(){ return loadJSON(LS.payments, []); }
+function setPayments(p){ saveJSON(LS.payments, p); }
+function getCampaigns(){ return loadJSON(LS.campaigns, []); }
+function setCampaigns(c){ saveJSON(LS.campaigns, c); }
+function getDonations(){ return loadJSON(LS.donations, []); }
+function setDonations(d){ saveJSON(LS.donations, d); }
+function getProducts(){ return loadJSON(LS.products, []); }
+function setProducts(p){ saveJSON(LS.products, p); }
+function getOrders(){ return loadJSON(LS.orders, []); }
+function setOrders(o){ saveJSON(LS.orders, o); }
+
+/* ---- Compteurs non-lus (locaux à l'appareil/utilisateur) ---- */
+function lastSeenKey(section, username){ return 'aa_lastseen_' + section + '_' + username; }
+function getLastSeen(section, username){
+  try{ return localStorage.getItem(lastSeenKey(section, username)) || memoryStore[lastSeenKey(section, username)] || null; }
+  catch(e){ return memoryStore[lastSeenKey(section, username)] || null; }
+}
+function markSeen(section, username){
+  const ts = new Date().toISOString();
+  try{
+    if(storageAvailable){ localStorage.setItem(lastSeenKey(section, username), ts); }
+    else{ memoryStore[lastSeenKey(section, username)] = ts; }
+  }catch(e){ memoryStore[lastSeenKey(section, username)] = ts; }
+}
+function countUnreadForum(session){
+  const lastSeen = getLastSeen('forum', session.username);
+  return getForum().filter(m => m.author !== session.fullName && (!lastSeen || new Date(m.createdAt) > new Date(lastSeen))).length;
+}
+function countUnreadNews(session){
+  const lastSeen = getLastSeen('news', session.username);
+  return getNews().filter(p => p.author !== session.fullName && (!lastSeen || new Date(p.createdAt) > new Date(lastSeen))).length;
+}
+
+/* ---- Messages masqués "pour moi seul" (local à l'appareil/utilisateur) ---- */
+function hiddenMsgKey(username){ return 'aa_hidden_msgs_' + username; }
+function getHiddenMessages(username){ return loadJSON(hiddenMsgKey(username), []); }
+function hideMessageForMe(id, username){
+  const list = getHiddenMessages(username);
+  if(!list.includes(id)){ list.push(id); saveJSON(hiddenMsgKey(username), list, true); }
+}
+
+/* ---- Présence en ligne / en train d'écrire (partagée via Supabase) ---- */
+function getPresence(){ return loadJSON(LS.presence, {}); }
+async function pushPresence(session, opts){
+  opts = opts || {};
+  const remote = await supabasePull(LS.presence);
+  const presence = (remote && remote.value) ? remote.value : {};
+  const now = new Date().toISOString();
+  const prev = presence[session.username] || {};
+  presence[session.username] = {
+    fullName: session.fullName,
+    role: session.role,
+    lastActive: now,
+    typing: !!opts.typing,
+    typingAt: opts.typing ? now : prev.typingAt
+  };
+  saveJSON(LS.presence, presence, true);
+  await supabasePush(LS.presence, presence, now);
+}
+async function pullPresence(){
+  const remote = await supabasePull(LS.presence);
+  return (remote && remote.value) ? remote.value : {};
+}
+
+// Compresse une image côté navigateur avant stockage (pour limiter la taille en localStorage)
+function compressImageFile(file, maxDim, quality){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else{ w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality||0.8));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function getSession(){ return loadJSON(LS.session, null); }
+function setSession(s){ saveJSON(LS.session, s); }
+
+/* ================= SYNCHRONISATION SUPABASE ================= */
+const SUPABASE_URL = 'https://rbnsymxybhihspknfqdb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_F0GVlsQeKnCyKs5DWYgWKg_H6pYhZ4M';
+const SUPABASE_REST = SUPABASE_URL + '/rest/v1';
+const SUPABASE_TABLE = 'assoc_data';
+
+// Clés synchronisées entre appareils (la session de connexion reste locale à chaque appareil)
+const SYNC_KEYS = [LS.settings, LS.users, LS.members, LS.accounting, LS.news, LS.forum, LS.events, LS.gallery, LS.documents_store, LS.payments, LS.campaigns, LS.donations, LS.products, LS.orders];
+
+function tsKey(key){ return key + '__ts'; }
+function getLocalTimestamp(key){
+  try{ return localStorage.getItem(tsKey(key)) || memoryStore[tsKey(key)] || null; }catch(e){ return memoryStore[tsKey(key)] || null; }
+}
+function setLocalTimestamp(key, iso){
+  try{
+    if(storageAvailable){ localStorage.setItem(tsKey(key), iso); }
+    else{ memoryStore[tsKey(key)] = iso; }
+  }catch(e){ memoryStore[tsKey(key)] = iso; }
+}
+
+function supabaseHeaders(){
+  return {
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Content-Type': 'application/json'
+  };
+}
+
+// Vérification légère : ne récupère que les dates de mise à jour (pas les données),
+// pour savoir en un seul petit appel si une synchronisation complète est nécessaire.
+async function supabasePullTimestamps(){
+  try{
+    const res = await fetch(`${SUPABASE_REST}/${SUPABASE_TABLE}?select=key,updated_at`, {
+      headers: supabaseHeaders()
+    });
+    if(!res.ok) return {};
+    const rows = await res.json();
+    const map = {};
+    rows.forEach(r=>{ map[r.key] = r.updated_at; });
+    return map;
+  }catch(e){
+    console.warn('Supabase timestamps error', e);
+    return {};
+  }
+}
+
+async function supabasePull(key){
+  try{
+    const res = await fetch(`${SUPABASE_REST}/${SUPABASE_TABLE}?key=eq.${encodeURIComponent(key)}&select=value,updated_at`, {
+      headers: supabaseHeaders()
+    });
+    if(!res.ok) return null;
+    const rows = await res.json();
+    if(!rows.length) return null;
+    return {value: rows[0].value, updatedAt: rows[0].updated_at};
+  }catch(e){
+    console.warn('Supabase pull error', key, e);
+    return null;
+  }
+}
+
+async function supabasePush(key, value, updatedAt){
+  try{
+    const res = await fetch(`${SUPABASE_REST}/${SUPABASE_TABLE}?on_conflict=key`, {
+      method: 'POST',
+      headers: {...supabaseHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([{key, value, updated_at: updatedAt}])
+    });
+    return res.ok;
+  }catch(e){
+    console.warn('Supabase push error', key, e);
+    return false;
+  }
+}
+
+// Synchronisation en deux temps :
+// 1) un seul petit appel pour comparer les dates de toutes les clés
+// 2) téléchargement des données complètes UNIQUEMENT pour les clés qui ont réellement changé
+async function syncAllFromRemote(){
+  let anyRemoteNewer = false;
+  const remoteTimestamps = await supabasePullTimestamps();
+
+  for(const key of SYNC_KEYS){
+    const localTs = getLocalTimestamp(key);
+    const remoteTs = remoteTimestamps[key];
+
+    if(remoteTs && (!localTs || new Date(remoteTs) > new Date(localTs))){
+      // La version distante est plus récente : on télécharge les données complètes de cette clé
+      const remote = await supabasePull(key);
+      if(remote){
+        saveJSON(key, remote.value, true);
+        setLocalTimestamp(key, remote.updatedAt);
+        anyRemoteNewer = true;
+      }
+    } else if(localTs && (!remoteTs || new Date(localTs) > new Date(remoteTs))){
+      // La version locale est plus récente : on l'envoie vers Supabase
+      const localVal = loadJSON(key, null);
+      if(localVal !== null) await supabasePush(key, localVal, localTs);
+    } else if(!remoteTs){
+      // Aucune version distante n'existe encore : première synchronisation de cette clé
+      const localVal = loadJSON(key, null);
+      if(localVal !== null){
+        const ts = localTs || new Date().toISOString();
+        setLocalTimestamp(key, ts);
+        await supabasePush(key, localVal, ts);
+      }
+    }
+  }
+  return anyRemoteNewer;
+}
+
+const CREATOR_NAME = 'Jean Marc';
+const CREATOR_PASS = 'jeanmarcamp';
+
+const DEFAULT_LOGO = "data:image/jpeg;base64,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";
+
+function bootstrap(){
+  if(!getSettings()){
+    setSettings({
+      assocName: 'Mon Association',
+      assocLogo: DEFAULT_LOGO,
+      expiryDate: '',
+      montantAdhesion: 0,
+      montantCotisation: 0,
+      orangeMoney: '',
+      moovMoney: '',
+      mtnMoney: '',
+      wave: ''
+    }, true); // skipSync : on ne pousse pas ces valeurs par défaut avant d'avoir vérifié Supabase
+  } else {
+    const s = getSettings();
+    if(!s.assocLogo){ s.assocLogo = DEFAULT_LOGO; setSettings(s, true); }
+  }
+  if(getUsers().length === 0){
+    setUsers([{
+      id: uid(), username: CREATOR_NAME, password: CREATOR_PASS,
+      role: 'createur', fullName: 'Jean Marc', createdAt: new Date().toISOString()
+    }], true); // skipSync : idem, en attente de la synchronisation initiale
+  }
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function fmtDate(d){
+  if(!d) return '—';
+  const dt = new Date(d);
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+function fmtDateTime(d){
+  const dt = new Date(d);
+  if(isNaN(dt)) return '—';
+  return dt.toLocaleDateString('fr-FR') + ' à ' + dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+function initials(name){
+  return (name||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('');
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function escapeHtml(s){
+  return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------------- App locking (expiry) ---------------- */
+function isAppLocked(){
+  const s = getSettings();
+  if(!s || !s.expiryDate) return true; // tant que la période n'est pas définie, app verrouillée aux non-créateurs pour la saisie
+  const today = new Date(); today.setHours(0,0,0,0);
+  const end = new Date(s.expiryDate); end.setHours(0,0,0,0);
+  if(today > end) return true;
+  if(s.usageStartDate){
+    const start = new Date(s.usageStartDate); start.setHours(0,0,0,0);
+    if(today < start) return true;
+  }
+  return false;
+}
+function isExpiryUnset(){
+  const s = getSettings();
+  return !s || !s.expiryDate;
+}
+
+/* ---------------- Router ---------------- */
+window.addEventListener('hashchange', render);
+window.addEventListener('DOMContentLoaded', ()=>{
+  bootstrap();
+  // La connexion est obligatoire à chaque ouverture de l'application :
+  // on efface toute session précédente au démarrage.
+  try{ localStorage.removeItem(LS.session); }catch(e){}
+  delete memoryStore[LS.session];
+  location.hash = '#/accueil';
+  render();
+
+  // Synchronisation avec Supabase en arrière-plan (n'empêche pas l'affichage immédiat)
+  runSync();
+
+  // Synchronisation automatique périodique (toutes les 30 secondes, seulement si l'onglet est visible)
+  setInterval(()=>{
+    if(document.visibilityState === 'visible'){ runSync(); }
+  }, 30000);
+});
+
+let syncInProgress = false;
+function runSync(){
+  if(syncInProgress) return;
+  syncInProgress = true;
+  const btn = document.getElementById('syncBtn');
+  if(btn) btn.style.opacity = '0.5';
+  syncAllFromRemote().then(hasUpdates=>{
+    syncInProgress = false;
+    if(btn) btn.style.opacity = '1';
+    if(hasUpdates){ render(); toast('Données mises à jour.'); }
+  }).catch(e=>{
+    syncInProgress = false;
+    if(btn) btn.style.opacity = '1';
+    console.warn('Sync error', e);
+  });
+}
+function manualSync(){
+  toast('Synchronisation en cours...');
+  runSync();
+}
+
+function currentRoute(){
+  const h = location.hash.replace(/^#\//,'') || 'accueil';
+  const [path, ...rest] = h.split('/');
+  return {path, param: rest.join('/')};
+}
+
+function nav(hash){ location.hash = hash; }
+
+/* ---------------- NAV DEFINITION ---------------- */
+const NAV_ITEMS = [
+  {key:'accueil', label:'Accueil', icon:'home', color:'#F0C46B', roles:['createur','admin','tresoriere','membre']},
+  {key:'membres', label:'Membres', icon:'members', color:'#7FD9B9', roles:['createur','admin','tresoriere','membre']},
+  {key:'comptabilite', label:'Comptabilité', icon:'wallet', color:'#8FB8F6', roles:['createur','tresoriere']},
+  {key:'dons', label:'Dons & collecte', icon:'gift', color:'#F2A46F', roles:['createur','admin','tresoriere','membre']},
+  {key:'boutique', label:'Boutique', icon:'shop', color:'#C9A6F0', roles:['createur','admin','membre']},
+  {key:'actualites', label:'Actualités', icon:'news', color:'#6FD1E0', roles:['createur','admin','tresoriere','membre']},
+  {key:'forum', label:'Messagerie', icon:'chat', color:'#F6C9DE', roles:['createur','admin','tresoriere','membre']},
+  {key:'calendrier', label:'Calendrier', icon:'calendar', color:'#F2E36F', roles:['createur','admin','tresoriere','membre']},
+  {key:'galerie', label:'Galerie', icon:'gallery', color:'#A8E063', roles:['createur','admin','tresoriere','membre']},
+  {key:'documents', label:'Documents', icon:'docs', color:'#C9CED6', roles:['createur','admin','tresoriere','membre']},
+  {key:'profil', label:'Mon profil', icon:'user', color:'#8DE0C4', roles:['createur','admin','tresoriere','membre']},
+  {key:'options', label:'Options', icon:'options', color:'#E0B0FF', roles:['createur']},
+];
+
+/* ---------------- MAIN RENDER ---------------- */
+function render(){
+  try{
+    renderInner();
+  }catch(err){
+    console.error('Erreur application:', err);
+    const app = document.getElementById('app');
+    if(app){
+      app.innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;background:#F6F4EC;">
+          <div style="background:#fff;border-radius:16px;padding:28px;max-width:460px;box-shadow:0 10px 30px rgba(0,0,0,0.12);">
+            <h2 style="margin-top:0;color:#B3432B;">Une erreur est survenue</h2>
+            <p style="color:#5B6B60;font-size:14px;">L'application a rencontré un problème inattendu. Essayez de recharger la page.</p>
+            <p style="font-family:monospace;font-size:12px;background:#F6F4EC;padding:10px;border-radius:8px;color:#333;word-break:break-word;">${escapeHtml(err.message)}</p>
+            <button onclick="location.reload()" style="margin-top:10px;padding:10px 18px;border:none;border-radius:8px;background:#21503C;color:#fff;font-weight:600;cursor:pointer;">Recharger</button>
+          </div>
+        </div>`;
+    }
+  }
+}
+
+function renderInner(){
+  const app = document.getElementById('app');
+  const session = getSession();
+
+  if(!session){
+    app.innerHTML = renderLogin();
+    attachLoginEvents();
+    return;
+  }
+
+  const {path} = currentRoute();
+
+  // App-wide lock (expired), only creator may pass, and only to Options
+  if(isAppLocked() && session.role !== 'createur' && path !== 'options'){
+    app.innerHTML = renderLockScreen();
+    return;
+  }
+
+  app.innerHTML = renderShell(session, path);
+  attachShellEvents(session);
+  renderPage(path, session);
+}
+
+/* ---------------- LOGIN ---------------- */
+function renderLogin(){
+  const s = getSettings() || {};
+  return `
+  <div class="login-screen">
+    <div class="login-card">
+      <div class="login-emblem">${s.assocLogo ? `<img src="${s.assocLogo}" alt="logo">` : `<svg viewBox="0 0 24 24" fill="none" stroke="#F0E1BE" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>`}</div>
+      <h1>${escapeHtml(s.assocName || 'Mon Association')}</h1>
+      <p class="sub">Connectez-vous pour accéder à l'espace de gestion</p>
+      <form id="loginForm">
+        <div class="field">
+          <label>Nom d'utilisateur</label>
+          <input type="text" id="loginUser" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label>Mot de passe</label>
+          <input type="password" id="loginPass" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+        <div class="login-error" id="loginError"></div>
+      </form>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-05-D</span></div>
+    </div>
+  </div>`;
+}
+function attachLoginEvents(){
+  document.getElementById('loginForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const u = document.getElementById('loginUser').value.trim();
+    const p = document.getElementById('loginPass').value;
+    const users = getUsers();
+    const found = users.find(x=>x.username.toLowerCase()===u.toLowerCase() && x.password===p);
+    const errEl = document.getElementById('loginError');
+    if(found){
+      setSession({username:found.username, role:found.role, fullName:found.fullName||found.username, userId:found.id, loginAt:new Date().toISOString()});
+      errEl.textContent='';
+      location.hash = '#/accueil';
+      render();
+    } else {
+      errEl.textContent = "Nom d'utilisateur ou mot de passe incorrect.";
+    }
+  });
+}
+
+function renderLockScreen(){
+  return `
+  <div class="lock-screen">
+    <div class="lock-card">
+      <div class="login-emblem" style="margin:0 auto 16px;">${ICONS.lock}</div>
+      <h1>Application verrouillée</h1>
+      <p>La période d'utilisation de cette application est arrivée à échéance. Seul le créateur de l'application peut la déverrouiller depuis les Options.</p>
+      <button class="btn btn-ghost" style="margin-top:14px" onclick="logout()">Se déconnecter</button>
+    </div>
+  </div>`;
+}
+
+function logout(){
+  stopForumPresence();
+  localStorage.removeItem(LS.session);
+  location.hash = '#/accueil';
+  render();
+}
+
+/* ---------------- SHELL ---------------- */
+function renderShell(session, activePath){
+  const s = getSettings() || {};
+  const currentUser = getUsers().find(u=>u.username===session.username) || {};
+  const unreadCounts = { forum: countUnreadForum(session), actualites: countUnreadNews(session) };
+  const badgeHtml = (key) => unreadCounts[key] > 0 ? `<span class="nav-badge">${unreadCounts[key]>9?'9+':unreadCounts[key]}</span>` : '';
+  const items = NAV_ITEMS.filter(it => it.roles.includes(session.role));
+  const navLinks = items.map(it => `
+    <a href="#/${it.key}" class="${activePath===it.key?'active':''}" ${activePath===it.key?'':`style="color:${it.color}"`}>${ICONS[it.icon]}<span>${it.label}</span>${badgeHtml(it.key)}</a>
+  `).join('');
+
+  return `
+  <div class="topbar">
+    <button class="menu-btn" id="menuBtn">${ICONS.menu}</button>
+    <div class="brand">
+      <div class="brand-logo">${s.assocLogo ? `<img src="${s.assocLogo}">` : ''}</div>
+      <div class="brand-name">${escapeHtml(s.assocName||'Mon Association')}</div>
+    </div>
+    <div class="user-pill">
+      <div class="dot" style="${currentUser.profilePhoto?`background-image:url('${currentUser.profilePhoto}');background-size:cover;background-position:center;`:''}">${currentUser.profilePhoto?'':initials(session.fullName)}</div>
+      <span>${escapeHtml(session.fullName)}</span>
+    </div>
+    <button class="btn btn-topbar-sync" onclick="manualSync()" title="Actualiser" id="syncBtn">${ICONS.sync}<span class="btn-label">Actualiser</span></button>
+    <button class="btn btn-topbar-logout" onclick="logout()" title="Déconnexion">${ICONS.logout}<span class="btn-label">Déconnexion</span></button>
+  </div>
+  <div class="shell">
+    <nav class="sidenav" id="sidenav">${navLinks}</nav>
+    <main id="mainContent"></main>
+  </div>
+  <div class="bottomnav">
+    <div class="bottomnav-inner">${items.map(it=>`<a href="#/${it.key}" class="${activePath===it.key?'active':''}" ${activePath===it.key?'':`style="color:${it.color}"`}>${ICONS[it.icon]}<span>${it.label}</span>${badgeHtml(it.key)}</a>`).join('')}</div>
+  </div>`;
+}
+
+function attachShellEvents(){
+  const menuBtn = document.getElementById('menuBtn');
+  const sidenav = document.getElementById('sidenav');
+  if(menuBtn){
+    menuBtn.addEventListener('click', ()=>{
+      sidenav.classList.toggle('drawer-open');
+    });
+  }
+  document.addEventListener('click', function closeDrawer(e){
+    if(sidenav && sidenav.classList.contains('drawer-open') && !sidenav.contains(e.target) && e.target!==menuBtn){
+      sidenav.classList.remove('drawer-open');
+    }
+  }, {once:true});
+}
+
+/* ---------------- PAGE ROUTER ---------------- */
+function renderPage(path, session){
+  const main = document.getElementById('mainContent');
+  if(path !== 'forum'){ stopForumPresence(); }
+  const routes = {
+    accueil: pageAccueil,
+    membres: pageMembresRouter,
+    options: pageOptions,
+    comptabilite: pageComptabilite,
+    dons: pageDons,
+    boutique: pageBoutique,
+    actualites: pageActualites,
+    forum: pageForum,
+    calendrier: pageCalendrier,
+    galerie: pageGalerie,
+    documents: pageDocuments,
+    profil: pageProfil,
+  };
+  const fn = routes[path] || pageAccueil;
+  main.innerHTML = fn(session);
+  if(fn._after) fn._after();
+  attachPageEvents(path, session);
+}
+
+function pagePlaceholder(title, icon, desc){
+  return `
+  <div class="page-head"><h1>${title}</h1><p>${desc}</p></div>
+  <div class="card" style="text-align:center;padding:50px 24px;">
+    <div style="width:56px;height:56px;border-radius:14px;background:var(--bg);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:var(--primary);">${ICONS[icon]}</div>
+    <h3 style="margin:0 0 6px;font-size:16px;color:var(--ink);">Module à venir</h3>
+    <p style="color:var(--ink-soft);font-size:14px;max-width:380px;margin:0 auto;">Cette fonctionnalité sera construite dans une prochaine étape, une fois la Phase 1 (membres, options) validée.</p>
+  </div>`;
+}
+
+/* ================= ACCUEIL ================= */
+function pageAccueil(session){
+  const s = getSettings()||{};
+  const members = getMembers();
+  const cotisationsAJour = members.filter(m=>m.cotisationStatus==='a_jour').length;
+  const lockWarning = isExpiryUnset() && session.role==='createur' ? `
+    <div class="locked-banner">${ICONS.bell} Aucune date d'utilisation n'est définie : tant que vous ne la renseignez pas dans Options, les informations saisies dans l'application ne seront pas conservées comme valides.</div>` : '';
+  return `
+    <div class="welcome-banner"><h1>Bonjour, ${escapeHtml(session.fullName.split(' ')[0])} 👋</h1><p>Bienvenue sur l'espace de gestion de ${escapeHtml(s.assocName||'votre association')}.</p></div>
+    ${lockWarning}
+    <div class="grid grid-3" style="margin-bottom:22px;">
+      <div class="stat"><div class="n">${members.length}</div><div class="l">Membres inscrits</div></div>
+      <div class="stat"><div class="n">${cotisationsAJour}</div><div class="l">Cotisations à jour</div></div>
+      <div class="stat"><div class="n" style="font-size:17px;">${s.usageStartDate?fmtDate(s.usageStartDate)+' → ':''}${fmtDate(s.expiryDate)}</div><div class="l">Période d'utilisation</div></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">Accès rapide</h3>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <a href="#/membres/nouveau" class="btn btn-primary">${ICONS.plus} Inscrire un membre</a>
+        <a href="#/membres" class="btn btn-navy">${ICONS.members} Voir l'annuaire</a>
+        ${session.role==='createur' ? `<a href="#/options" class="btn btn-beige">${ICONS.options} Options</a>` : ''}
+      </div>
+    </div>
+    ${members.length ? `
+    <div class="card">
+      <h3 style="margin-top:0;">Derniers membres inscrits</h3>
+      <div class="grid grid-2">
+        ${members.slice(-4).reverse().map(m=>memberCardHtml(m)).join('')}
+      </div>
+    </div>` : `
+    <div class="card" style="text-align:center;padding:40px;color:var(--ink-soft);">
+      Aucun membre n'a encore été inscrit. <a href="#/membres/nouveau" style="color:var(--primary);font-weight:600;">Inscrire le premier membre →</a>
+    </div>`}
+  `;
+}
+
+/* ================= MEMBRES ================= */
+function memberCardHtml(m){
+  const photo = m.photo ? `<img class="member-photo" src="${m.photo}">` : `<div class="member-photo placeholder">${initials((m.prenom||'')+' '+(m.nom||''))}</div>`;
+  const statusBadge = m.cotisationStatus==='a_jour' ? `<span class="badge badge-ok">Cotisation à jour</span>` : `<span class="badge badge-warn">Cotisation en attente</span>`;
+  return `
+  <div class="member-card" onclick="nav('#/membres/${m.id}')">
+    ${photo}
+    <div class="member-info">
+      <div class="name">${escapeHtml(m.civilite||'')} ${escapeHtml(m.prenom||'')} ${escapeHtml(m.nom||'')}</div>
+      <div class="role">${escapeHtml(m.roleAssociation||'Membre')} · depuis ${fmtDate(m.dateAdhesion)}</div>
+      <div style="margin-top:5px;">${statusBadge}</div>
+    </div>
+  </div>`;
+}
+
+function pageMembresRouter(session){
+  const {param} = currentRoute();
+  if(param === 'nouveau') return pageMembreForm(session, null);
+  if(param && param.startsWith('edit/')) return pageMembreForm(session, param.split('/')[1]);
+  if(param) return pageMembreDetail(session, param);
+  return pageMembresListe(session);
+}
+
+function pageMembresListe(session){
+  const members = getMembers();
+  const canCreate = ['createur','admin','tresoriere'].includes(session.role);
+  return `
+    <div class="page-head"><h1>Annuaire des membres</h1><p>${members.length} membre${members.length>1?'s':''} inscrit${members.length>1?'s':''}.</p></div>
+    <div class="toolbar">
+      <div class="field search-input" style="margin:0;">
+        <input type="text" id="memberSearch" placeholder="Rechercher un nom, prénom, rôle...">
+      </div>
+      ${canCreate ? `<a href="#/membres/nouveau" class="btn btn-primary">${ICONS.plus} Nouveau membre</a>` : ''}
+    </div>
+    <div class="grid grid-2" id="memberGrid">
+      ${members.length ? members.slice().reverse().map(m=>memberCardHtml(m)).join('') : `<div class="card" style="grid-column:1/-1;text-align:center;color:var(--ink-soft);padding:40px;">Aucun membre pour le moment.</div>`}
+    </div>
+  `;
+}
+
+function memberFieldsSpec(){
+  return {
+    civilite: {label:'Civilité', type:'select', options:['Mademoiselle','Madame','Monsieur'], required:true},
+    nom: {label:'Nom de famille', type:'text', required:true},
+    prenom: {label:'Prénom', type:'text', required:true},
+    sexe: {label:'Sexe', type:'select', options:['Homme','Femme'], required:true},
+    dateNaissance: {label:'Date de naissance', type:'date'},
+    nationalite: {label:'Nationalité', type:'text'},
+    adresse: {label:'Adresse', type:'text'},
+    boitePostale: {label:'Boîte postale', type:'text'},
+    codePostal: {label:'Code postal', type:'text'},
+    ville: {label:'Ville', type:'text'},
+    commune: {label:'Commune', type:'text'},
+    telephone: {label:'Numéro de téléphone', type:'tel', required:true},
+    email: {label:'Email', type:'email'},
+    roleAssociation: {label:'Rôle au sein de l\'association', type:'select', options:['Président(e)','Vice-président(e)','Trésorier(ère)','Secrétaire','Membre actif','Membre'], required:true},
+    dateAdhesion: {label:'Date de début d\'adhésion', type:'date', required:true},
+  };
+}
+
+function pageMembreForm(session, editId){
+  const existing = editId ? getMembers().find(m=>m.id===editId) : null;
+  const spec = memberFieldsSpec();
+  const v = k => existing ? escapeHtml(existing[k]||'') : '';
+  const selected = (k,opt) => existing && existing[k]===opt ? 'selected' : '';
+
+  const fieldsHtml = Object.entries(spec).map(([key,f])=>{
+    if(f.type==='select'){
+      return `<div class="field"><label>${f.label}${f.required?' *':''}</label>
+        <select id="f_${key}" ${f.required?'required':''}>
+          <option value="">Choisir…</option>
+          ${f.options.map(o=>`<option value="${o}" ${selected(key,o)}>${o}</option>`).join('')}
+        </select></div>`;
+    }
+    return `<div class="field"><label>${f.label}${f.required?' *':''}</label>
+      <input type="${f.type}" id="f_${key}" value="${v(key)}" ${f.required?'required':''}></div>`;
+  }).join('');
+
+  return `
+    <div class="page-head"><h1>${existing?'Modifier le':"Inscription d'un"} membre</h1><p>Renseignez les informations d'identité, coordonnées et documents du membre.</p></div>
+    <form id="memberForm">
+      <div class="card">
+        <h3 style="margin-top:0;">Identité & coordonnées</h3>
+        <div class="grid grid-2">${fieldsHtml}</div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0;">Documents à joindre</h3>
+        <div class="grid grid-3">
+          ${fileDropHtml('photo',"Photo de l'adhérent", existing?.photo)}
+          ${fileDropHtml('cni','CNI', existing?.cni)}
+          ${fileDropHtml('attestation','Attestation de résidence', existing?.attestation)}
+        </div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;">
+        <button type="submit" class="btn btn-primary">${existing?'Enregistrer les modifications':'Inscrire le membre'}</button>
+        <a href="#/membres" class="btn btn-ghost">Annuler</a>
+      </div>
+      <input type="hidden" id="f_id" value="${existing?existing.id:''}">
+    </form>
+  `;
+}
+
+function fileDropHtml(key, label, currentVal){
+  return `
+  <div>
+    <label style="display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;">${label}</label>
+    <label class="file-drop ${currentVal?'has-file':''}" id="drop_${key}">
+      ${currentVal ? `<img src="${currentVal}" class="file-thumb">Fichier ajouté — cliquer pour changer` : `Cliquer pour ajouter un fichier`}
+      <input type="file" id="f_${key}" accept="image/*,.pdf">
+    </label>
+  </div>`;
+}
+
+// Aperçu générique : affiche le fichier choisi (image ou nom de fichier) directement
+// dans la zone où l'utilisateur a cliqué, avant même l'enregistrement.
+// Important : on ne touche JAMAIS à l'élément <input> lui-même (sinon le fichier
+// sélectionné serait perdu) — on met à jour uniquement le texte d'aperçu à côté.
+function wireFilePreview(inputId, labelId){
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+  if(!input || !label) return;
+  input.addEventListener('change', ()=>{
+    const file = input.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const content = label.querySelector('.file-drop-content');
+      if(!content) return;
+      if(file.type.startsWith('image/')){
+        content.innerHTML = `<img src="${reader.result}" class="file-thumb">${escapeHtml(file.name)} — cliquer pour changer`;
+      } else {
+        content.innerHTML = `${ICONS.docs} ${escapeHtml(file.name)} — cliquer pour changer`;
+      }
+      label.classList.add('has-file');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function attachFileDrop(key){
+  const input = document.getElementById(`f_${key}`);
+  const label = document.getElementById(`drop_${key}`);
+  if(!input) return;
+  input.addEventListener('change', ()=>{
+    const file = input.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      input.dataset.value = reader.result;
+      if(file.type.startsWith('image/')){
+        label.innerHTML = `<img src="${reader.result}" class="file-thumb">Fichier ajouté — cliquer pour changer<input type="file" id="f_${key}" accept="image/*,.pdf">`;
+      } else {
+        label.innerHTML = `Fichier ajouté (${escapeHtml(file.name)}) — cliquer pour changer<input type="file" id="f_${key}" accept="image/*,.pdf">`;
+      }
+      label.classList.add('has-file');
+      document.getElementById(`f_${key}`).dataset.value = reader.result;
+      attachFileDrop(key);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function pageMembreDetail(session, id){
+  const m = getMembers().find(x=>x.id===id);
+  if(!m) return `<div class="card">Membre introuvable. <a href="#/membres">Retour à l'annuaire</a></div>`;
+  const spec = memberFieldsSpec();
+  const isSelf = session.role==='membre' && m.linkedUserId===session.userId;
+  const canEdit = ['createur','admin','tresoriere'].includes(session.role) || isSelf;
+  const canDelete = ['createur','admin'].includes(session.role);
+
+  const rows = Object.entries(spec).map(([key,f])=>{
+    let val = m[key]||'—';
+    if(f.type==='date') val = fmtDate(m[key]);
+    return `<div class="summary-row"><span class="k">${f.label}</span><span class="v">${escapeHtml(val)}</span></div>`;
+  }).join('');
+
+  return `
+    <div class="page-head"><h1>${escapeHtml(m.civilite)} ${escapeHtml(m.prenom)} ${escapeHtml(m.nom)}</h1><p>Fiche membre — résumé complet</p></div>
+    <div class="grid grid-2">
+      <div>
+        <div class="card">
+          <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px;">
+            ${m.photo ? `<img src="${m.photo}" style="width:76px;height:76px;border-radius:14px;object-fit:cover;">` : `<div class="member-photo placeholder" style="width:76px;height:76px;font-size:22px;">${initials(m.prenom+' '+m.nom)}</div>`}
+            <div>
+              <div style="font-weight:700;font-size:17px;">${escapeHtml(m.prenom)} ${escapeHtml(m.nom)}</div>
+              <div style="color:var(--ink-soft);font-size:13.5px;">${escapeHtml(m.roleAssociation||'Membre')}</div>
+              <span class="badge ${m.cotisationStatus==='a_jour'?'badge-ok':'badge-warn'}">${m.cotisationStatus==='a_jour'?'Cotisation à jour':'Cotisation en attente'}</span>
+            </div>
+          </div>
+          <div class="summary-block">
+            <h3>Résumé des informations</h3>
+            ${rows}
+          </div>
+          <div class="summary-block">
+            <h3>Documents</h3>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              ${m.cni ? `<a href="${m.cni}" target="_blank" class="btn btn-ghost">${ICONS.docs} CNI</a>` : `<span style="color:var(--ink-soft);font-size:13px;">CNI non fournie</span>`}
+              ${m.attestation ? `<a href="${m.attestation}" target="_blank" class="btn btn-ghost">${ICONS.docs} Attestation de résidence</a>` : `<span style="color:var(--ink-soft);font-size:13px;">Attestation non fournie</span>`}
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-accent" onclick="exportMemberPDF('${m.id}')">${ICONS.pdf} Télécharger le résumé (PDF)</button>
+            ${canEdit ? `<a href="#/membres/edit/${m.id}" class="btn btn-edit">Modifier</a>` : ''}
+            ${canDelete ? `<button class="btn btn-danger" onclick="deleteMember('${m.id}')">${ICONS.trash} Supprimer</button>` : ''}
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h3 style="margin-top:0;">Suivi de cotisation</h3>
+          <div class="field">
+            <label>État de la cotisation</label>
+            <select id="cotisationStatus" ${canEdit?'':'disabled'}>
+              <option value="en_attente" ${m.cotisationStatus!=='a_jour'?'selected':''}>En attente</option>
+              <option value="a_jour" ${m.cotisationStatus==='a_jour'?'selected':''}>À jour</option>
+            </select>
+          </div>
+          ${canEdit ? `<button class="btn btn-primary btn-block" onclick="updateCotisationStatus('${m.id}')">Mettre à jour</button>` : ''}
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Déclarer un paiement</h3>
+          <p style="color:var(--ink-soft);font-size:13px;margin-top:-6px;">Après avoir envoyé l'argent sur l'un des numéros de collecte (voir Comptabilité), déclarez votre paiement ici pour que le trésorier le valide.</p>
+          <form id="paymentForm">
+            <div class="field"><label>Type</label>
+              <select id="payType">
+                <option value="cotisation">Cotisation</option>
+                <option value="adhesion">Adhésion</option>
+              </select>
+            </div>
+            <div class="field"><label>Montant (FCFA)</label><input type="number" id="payAmount" min="0" required></div>
+            <div class="field"><label>Moyen de paiement</label>
+              <select id="payMethod">
+                <option value="Orange Money">Orange Money</option>
+                <option value="Moov Money">Moov Money</option>
+                <option value="MTN Money">MTN Money</option>
+                <option value="Wave">Wave</option>
+                <option value="Espèces">Espèces</option>
+              </select>
+            </div>
+            <div class="field"><label>Référence de transaction (optionnel)</label><input type="text" id="payRef" placeholder="Ex : TX123456"></div>
+            <input type="hidden" id="payMemberId" value="${m.id}">
+            <button type="submit" class="btn btn-primary btn-block">Déclarer le paiement</button>
+          </form>
+          ${memberPaymentsHtml(m.id)}
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Journal</h3>
+          <div class="summary-row"><span class="k">Créé par</span><span class="v">${escapeHtml(m.createdBy||'—')}</span></div>
+          <div class="summary-row"><span class="k">Date de création</span><span class="v">${m.createdAt?fmtDateTime(m.createdAt):'—'}</span></div>
+          <div class="summary-row"><span class="k">Dernière modif. par</span><span class="v">${escapeHtml(m.updatedBy||'—')}</span></div>
+          <div class="summary-row"><span class="k">Date de modification</span><span class="v">${m.updatedAt?fmtDateTime(m.updatedAt):'—'}</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function memberPaymentsHtml(memberId){
+  const payments = getPayments().filter(p=>p.memberId===memberId).slice().reverse();
+  if(!payments.length) return '';
+  const statusBadge = (st) => st==='confirme' ? `<span class="badge badge-ok">Confirmé</span>` : st==='rejete' ? `<span class="badge badge-warn" style="background:#F7DADA;color:var(--danger);">Rejeté</span>` : `<span class="badge badge-warn">En attente</span>`;
+  return `
+    <div style="margin-top:14px;">
+      <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:var(--primary);border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:10px;">Historique des paiements déclarés</h3>
+      ${payments.map(p=>`
+        <div class="summary-row">
+          <span class="k">${fmtDate(p.date)} · ${p.type==='cotisation'?'Cotisation':'Adhésion'} · ${escapeHtml(p.method)}</span>
+          <span class="v">${fmtFCFA(p.amount)} ${statusBadge(p.status)}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+function declarePayment(session){
+  const memberId = document.getElementById('payMemberId').value;
+  const type = document.getElementById('payType').value;
+  const amount = Number(document.getElementById('payAmount').value);
+  const method = document.getElementById('payMethod').value;
+  const reference = document.getElementById('payRef').value.trim();
+  if(!amount){ toast('Veuillez indiquer un montant.'); return; }
+  const member = getMembers().find(m=>m.id===memberId);
+  const payments = getPayments();
+  payments.push({
+    id: uid(), memberId, memberName: member ? `${member.prenom} ${member.nom}` : '—',
+    type, amount, method, reference, date: new Date().toISOString().slice(0,10),
+    status: 'en_attente', declaredBy: session.fullName, declaredAt: new Date().toISOString()
+  });
+  setPayments(payments);
+  toast('Paiement déclaré. Il sera validé par le trésorier.');
+  render();
+}
+
+function confirmPayment(id){
+  const payments = getPayments();
+  const idx = payments.findIndex(p=>p.id===id);
+  if(idx<0) return;
+  const p = payments[idx];
+  const session = getSession();
+  p.status = 'confirme';
+  p.confirmedBy = session.fullName;
+  p.confirmedAt = new Date().toISOString();
+  setPayments(payments);
+
+  // Mettre à jour le statut de cotisation du membre si applicable
+  if(p.type==='cotisation'){
+    const members = getMembers();
+    const mIdx = members.findIndex(m=>m.id===p.memberId);
+    if(mIdx>=0){
+      members[mIdx].cotisationStatus = 'a_jour';
+      members[mIdx].updatedBy = session.fullName;
+      members[mIdx].updatedAt = new Date().toISOString();
+      setMembers(members);
+    }
+  }
+
+  // Enregistrer automatiquement comme recette en comptabilité
+  const entries = getAccounting();
+  entries.push({
+    id: uid(), type:'recette', amount: p.amount,
+    description: `${p.type==='cotisation'?'Cotisation':'Adhésion'} — ${p.memberName} (${p.method})`,
+    date: p.date, recordedBy: session.fullName, recordedAt: new Date().toISOString()
+  });
+  setAccounting(entries);
+
+  toast('Paiement confirmé et enregistré en comptabilité.');
+  render();
+}
+
+function rejectPayment(id){
+  if(!confirm('Rejeter cette déclaration de paiement ?')) return;
+  const payments = getPayments();
+  const idx = payments.findIndex(p=>p.id===id);
+  if(idx<0) return;
+  payments[idx].status = 'rejete';
+  payments[idx].confirmedBy = getSession().fullName;
+  payments[idx].confirmedAt = new Date().toISOString();
+  setPayments(payments);
+  toast('Paiement rejeté.');
+  render();
+}
+
+function updateCotisationStatus(id){
+  const members = getMembers();
+  const idx = members.findIndex(m=>m.id===id);
+  if(idx<0) return;
+  members[idx].cotisationStatus = document.getElementById('cotisationStatus').value;
+  members[idx].updatedBy = getSession().fullName;
+  members[idx].updatedAt = new Date().toISOString();
+  setMembers(members);
+  toast('Statut de cotisation mis à jour.');
+  render();
+}
+
+function deleteMember(id){
+  if(!confirm('Supprimer définitivement ce membre ?')) return;
+  setMembers(getMembers().filter(m=>m.id!==id));
+  toast('Membre supprimé.');
+  nav('#/membres');
+}
+
+function pdfImageFormat(dataUrl){
+  if(!dataUrl) return 'JPEG';
+  return dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+}
+
+function exportMemberPDF(id){
+  const m = getMembers().find(x=>x.id===id);
+  const s = getSettings()||{};
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 42;
+
+  // Header: assoc name left, logo right
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(33,80,60);
+  doc.text(s.assocName || 'Association', margin, 50);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(120,120,120);
+  let headerY = 66;
+  if(s.assocPhone){
+    doc.text('Tél : ' + s.assocPhone, margin, headerY);
+    headerY += 14;
+  }
+  doc.text('Fiche membre — document généré le ' + new Date().toLocaleDateString('fr-FR'), margin, headerY);
+  if(s.assocLogo){
+    try{ doc.addImage(s.assocLogo, pdfImageFormat(s.assocLogo), pageWidth-margin-46, 26, 46, 46); }catch(e){}
+  }
+  doc.setDrawColor(226,223,209); doc.line(margin, headerY+16, pageWidth-margin, headerY+16);
+
+  let y = headerY + 44;
+  if(m.photo){
+    try{ doc.addImage(m.photo, pdfImageFormat(m.photo), margin, y, 84, 84); }catch(e){}
+  }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(27,43,34);
+  doc.text(`${m.civilite||''} ${m.prenom||''} ${m.nom||''}`.trim(), margin + (m.photo?100:0), y+18);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.setTextColor(90,100,95);
+  doc.text(m.roleAssociation || 'Membre', margin + (m.photo?100:0), y+36);
+  doc.text('Statut cotisation : ' + (m.cotisationStatus==='a_jour' ? 'À jour' : 'En attente'), margin + (m.photo?100:0), y+52);
+
+  y += 105;
+  const spec = memberFieldsSpec();
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(33,80,60);
+  doc.text('Informations détaillées', margin, y);
+  y += 14;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 18;
+  doc.setFontSize(10);
+  Object.entries(spec).forEach(([key,f])=>{
+    let val = m[key] || '—';
+    if(f.type==='date') val = fmtDate(m[key]);
+    doc.setFont('helvetica','bold'); doc.setTextColor(90,100,95);
+    doc.text(f.label + ' :', margin, y);
+    doc.setFont('helvetica','normal'); doc.setTextColor(27,43,34);
+    doc.text(String(val), margin+180, y);
+    y += 18;
+    if(y > 760){ doc.addPage(); y = 60; }
+  });
+
+  y += 10;
+  doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(140,140,140);
+  doc.text('Document confidentiel — usage interne à l\'association.', margin, 810);
+
+  doc.save(`fiche_${(m.nom||'membre').replace(/\s+/g,'_')}_${(m.prenom||'').replace(/\s+/g,'_')}.pdf`);
+}
+
+/* ================= COMPTABILITÉ (Phase 2) ================= */
+let comptaTab = 'apercu';
+
+function computeAccountingTotals(){
+  const s = getSettings()||{};
+  const members = getMembers();
+  const entries = getAccounting();
+
+  const cotisationsAJour = members.filter(m=>m.cotisationStatus==='a_jour').length;
+  const totalCotisations = cotisationsAJour * (Number(s.montantCotisation)||0);
+  const totalAdhesions = members.length * (Number(s.montantAdhesion)||0);
+
+  const totalRecettesManuelles = entries.filter(e=>e.type==='recette').reduce((sum,e)=>sum+Number(e.amount||0),0);
+  const totalDepenses = entries.filter(e=>e.type==='depense').reduce((sum,e)=>sum+Number(e.amount||0),0);
+  const totalAchats = entries.filter(e=>e.type==='achat').reduce((sum,e)=>sum+Number(e.amount||0),0);
+
+  const totalRecettes = totalCotisations + totalAdhesions + totalRecettesManuelles;
+  const totalSorties = totalDepenses + totalAchats;
+  const solde = totalRecettes - totalSorties;
+
+  return {cotisationsAJour, totalCotisations, totalAdhesions, totalRecettesManuelles, totalDepenses, totalAchats, totalRecettes, totalSorties, solde};
+}
+
+function fmtFCFA(n){
+  return (Number(n)||0).toLocaleString('fr-FR') + ' FCFA';
+}
+
+function pageComptabilite(session){
+  if(!['createur','tresoriere'].includes(session.role)){
+    return `<div class="card">Accès réservé à la trésorerie et au créateur de l'application.</div>`;
+  }
+  const t = computeAccountingTotals();
+  return `
+    <div class="page-head"><h1>Comptabilité</h1><p>Bilan des cotisations, dépenses, achats et solde de caisse — accès réservé à la trésorerie.</p></div>
+    <div class="grid grid-3" style="margin-bottom:18px;">
+      <div class="stat"><div class="n">${fmtFCFA(t.totalRecettes)}</div><div class="l">Total recettes</div></div>
+      <div class="stat"><div class="n" style="color:var(--danger);">${fmtFCFA(t.totalSorties)}</div><div class="l">Dépenses & achats</div></div>
+      <div class="stat"><div class="n" style="color:${t.solde>=0?'var(--primary)':'var(--danger)'};">${fmtFCFA(t.solde)}</div><div class="l">Solde de caisse</div></div>
+    </div>
+    <div class="tabs" id="comptaTabs">
+      <button data-tab="apercu" class="${comptaTab==='apercu'?'active':''}">Aperçu</button>
+      <button data-tab="paiements" class="${comptaTab==='paiements'?'active':''}">Paiements${getPayments().filter(p=>p.status==='en_attente').length ? ` (${getPayments().filter(p=>p.status==='en_attente').length})` : ''}</button>
+      <button data-tab="mouvements" class="${comptaTab==='mouvements'?'active':''}">Dépenses & achats</button>
+      <button data-tab="recettes" class="${comptaTab==='recettes'?'active':''}">Autres recettes</button>
+      <button data-tab="numeros" class="${comptaTab==='numeros'?'active':''}">Numéros de collecte</button>
+    </div>
+    <div id="comptaContent">${renderComptaTab(comptaTab, session)}</div>
+  `;
+}
+
+function renderComptaTab(tab, session){
+  const t = computeAccountingTotals();
+  if(tab==='apercu'){
+    const members = getMembers();
+    return `
+    <div style="margin-bottom:14px;">
+      <button class="btn btn-accent" onclick="exportApercuPDF()">${ICONS.pdf} Télécharger le bilan (PDF)</button>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3 style="margin-top:0;">Cotisations & adhésions</h3>
+        <div class="summary-row"><span class="k">Membres inscrits</span><span class="v">${members.length}</span></div>
+        <div class="summary-row"><span class="k">Cotisations à jour</span><span class="v">${t.cotisationsAJour} membre${t.cotisationsAJour>1?'s':''}</span></div>
+        <div class="summary-row"><span class="k">Total cotisations perçues</span><span class="v">${fmtFCFA(t.totalCotisations)}</span></div>
+        <div class="summary-row"><span class="k">Total adhésions perçues</span><span class="v">${fmtFCFA(t.totalAdhesions)}</span></div>
+        <small class="hint">Calculé à partir du statut de cotisation de chaque membre et des montants définis dans Options.</small>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0;">Répartition</h3>
+        <div class="summary-row"><span class="k">Cotisations</span><span class="v">${fmtFCFA(t.totalCotisations)}</span></div>
+        <div class="summary-row"><span class="k">Adhésions</span><span class="v">${fmtFCFA(t.totalAdhesions)}</span></div>
+        <div class="summary-row"><span class="k">Autres recettes</span><span class="v">${fmtFCFA(t.totalRecettesManuelles)}</span></div>
+        <div class="summary-row"><span class="k">Dépenses</span><span class="v" style="color:var(--danger);">- ${fmtFCFA(t.totalDepenses)}</span></div>
+        <div class="summary-row"><span class="k">Achats</span><span class="v" style="color:var(--danger);">- ${fmtFCFA(t.totalAchats)}</span></div>
+        <div class="summary-row" style="border-top:2px solid var(--border);padding-top:10px;margin-top:6px;"><span class="k" style="font-weight:700;">Solde de caisse</span><span class="v" style="font-size:16px;">${fmtFCFA(t.solde)}</span></div>
+      </div>
+    </div>`;
+  }
+  if(tab==='paiements'){
+    const payments = getPayments().slice().reverse();
+    const pending = payments.filter(p=>p.status==='en_attente');
+    const others = payments.filter(p=>p.status!=='en_attente');
+    return `
+    <div class="card">
+      <h3 style="margin-top:0;">Paiements en attente de validation</h3>
+      ${pending.length ? pending.map(p=>`
+        <div class="summary-row" style="align-items:center;">
+          <span class="k">${fmtDate(p.date)} · ${escapeHtml(p.memberName)} · ${p.type==='cotisation'?'Cotisation':'Adhésion'} · ${escapeHtml(p.method)}${p.reference?' · Réf: '+escapeHtml(p.reference):''}</span>
+          <span class="v" style="display:flex;gap:8px;align-items:center;">
+            ${fmtFCFA(p.amount)}
+            <button class="btn btn-primary btn-sm" onclick="confirmPayment('${p.id}')">Confirmer</button>
+            <button class="btn btn-danger btn-sm" onclick="rejectPayment('${p.id}')">Rejeter</button>
+          </span>
+        </div>`).join('') : `<div style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun paiement en attente.</div>`}
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">Historique des paiements traités</h3>
+      <table>
+        <thead><tr><th>Date</th><th>Membre</th><th>Type</th><th>Montant</th><th>Statut</th></tr></thead>
+        <tbody>
+          ${others.length ? others.map(p=>`
+            <tr>
+              <td>${fmtDate(p.date)}</td>
+              <td>${escapeHtml(p.memberName)}</td>
+              <td>${p.type==='cotisation'?'Cotisation':'Adhésion'}</td>
+              <td>${fmtFCFA(p.amount)}</td>
+              <td>${p.status==='confirme'?`<span class="badge badge-ok">Confirmé</span>`:`<span class="badge badge-warn" style="background:#F7DADA;color:var(--danger);">Rejeté</span>`}</td>
+            </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun historique.</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+  }
+  if(tab==='mouvements'){
+    const entries = getAccounting().filter(e=>e.type==='depense'||e.type==='achat').slice().reverse();
+    return `
+    <div class="card">
+      <h3 style="margin-top:0;">Enregistrer une dépense ou un achat</h3>
+      <form id="mouvForm">
+        <div class="grid grid-2">
+          <div class="field"><label>Type</label>
+            <select id="mvType" required>
+              <option value="depense">Dépense</option>
+              <option value="achat">Achat</option>
+            </select>
+          </div>
+          <div class="field"><label>Montant (FCFA)</label><input type="number" id="mvAmount" min="0" required></div>
+          <div class="field"><label>Description</label><input type="text" id="mvDesc" required placeholder="Ex : Location de salle"></div>
+          <div class="field"><label>Date</label><input type="date" id="mvDate" value="${new Date().toISOString().slice(0,10)}" required></div>
+        </div>
+        <button type="submit" class="btn btn-primary">${ICONS.plus} Enregistrer</button>
+      </form>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">Historique des dépenses & achats</h3>
+        <button class="btn btn-accent" onclick="exportMouvementsPDF()">${ICONS.pdf} Télécharger (PDF)</button>
+      </div>
+      <table style="margin-top:14px;">
+        <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Montant</th><th>Par</th><th></th></tr></thead>
+        <tbody>
+          ${entries.length ? entries.map(e=>`
+            <tr>
+              <td>${fmtDate(e.date)}</td>
+              <td>${e.type==='depense'?'Dépense':'Achat'}</td>
+              <td>${escapeHtml(e.description)}</td>
+              <td style="color:var(--danger);font-weight:600;">- ${fmtFCFA(e.amount)}</td>
+              <td>${escapeHtml(e.recordedBy||'—')}</td>
+              <td><button class="btn btn-danger btn-sm" onclick="deleteAccountingEntry('${e.id}')">${ICONS.trash} Supprimer</button></td>
+            </tr>`).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune dépense ou achat enregistré.</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+  }
+  if(tab==='recettes'){
+    const entries = getAccounting().filter(e=>e.type==='recette').slice().reverse();
+    return `
+    <div class="card">
+      <h3 style="margin-top:0;">Enregistrer une recette (don, vente, autre entrée)</h3>
+      <form id="recetteForm">
+        <div class="grid grid-2">
+          <div class="field"><label>Montant (FCFA)</label><input type="number" id="rcAmount" min="0" required></div>
+          <div class="field"><label>Description</label><input type="text" id="rcDesc" required placeholder="Ex : Don de M. Koffi"></div>
+          <div class="field"><label>Date</label><input type="date" id="rcDate" value="${new Date().toISOString().slice(0,10)}" required></div>
+        </div>
+        <button type="submit" class="btn btn-primary">${ICONS.plus} Enregistrer</button>
+      </form>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">Historique des autres recettes</h3>
+        <button class="btn btn-accent" onclick="exportRecettesPDF()">${ICONS.pdf} Télécharger (PDF)</button>
+      </div>
+      <table style="margin-top:14px;">
+        <thead><tr><th>Date</th><th>Description</th><th>Montant</th><th>Par</th><th></th></tr></thead>
+        <tbody>
+          ${entries.length ? entries.map(e=>`
+            <tr>
+              <td>${fmtDate(e.date)}</td>
+              <td>${escapeHtml(e.description)}</td>
+              <td style="color:var(--primary);font-weight:600;">+ ${fmtFCFA(e.amount)}</td>
+              <td>${escapeHtml(e.recordedBy||'—')}</td>
+              <td><button class="btn btn-danger btn-sm" onclick="deleteAccountingEntry('${e.id}')">${ICONS.trash} Supprimer</button></td>
+            </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune recette manuelle enregistrée.</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+  }
+  if(tab==='numeros'){
+    const s = getSettings()||{};
+    return `
+    <div class="card" style="max-width:480px;">
+      <h3 style="margin-top:0;">Numéros de collecte des cotisations</h3>
+      <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px;">Ces numéros seront communiqués aux membres pour le paiement des cotisations et adhésions par mobile money.</p>
+      <div class="field"><label>Orange Money</label><input type="tel" id="numOrange" value="${escapeHtml(s.orangeMoney||'')}" placeholder="07 00 00 00 00"></div>
+      <div class="field"><label>Moov Money</label><input type="tel" id="numMoov" value="${escapeHtml(s.moovMoney||'')}" placeholder="01 00 00 00 00"></div>
+      <div class="field"><label>MTN Money</label><input type="tel" id="numMtn" value="${escapeHtml(s.mtnMoney||'')}" placeholder="05 00 00 00 00"></div>
+      <div class="field"><label>Wave</label><input type="tel" id="numWave" value="${escapeHtml(s.wave||'')}" placeholder="07 00 00 00 00"></div>
+      <button class="btn btn-primary" onclick="savePaymentNumbers()">Enregistrer</button>
+    </div>`;
+  }
+  return '';
+}
+
+function saveAccountingEntry(type, prefix){
+  const amount = Number(document.getElementById(prefix+'Amount').value);
+  const description = document.getElementById(prefix+'Desc').value.trim();
+  const date = document.getElementById(prefix+'Date').value;
+  if(!amount || !description || !date){ toast('Veuillez remplir tous les champs.'); return; }
+  const entries = getAccounting();
+  entries.push({
+    id: uid(), type, amount, description, date,
+    recordedBy: getSession().fullName, recordedAt: new Date().toISOString()
+  });
+  setAccounting(entries);
+  toast('Enregistré avec succès.');
+  render();
+}
+
+function deleteAccountingEntry(id){
+  if(!confirm('Supprimer cette entrée ?')) return;
+  setAccounting(getAccounting().filter(e=>e.id!==id));
+  toast('Entrée supprimée.');
+  render();
+}
+
+function savePaymentNumbers(){
+  const s = getSettings()||{};
+  s.orangeMoney = document.getElementById('numOrange').value.trim();
+  s.moovMoney = document.getElementById('numMoov').value.trim();
+  s.mtnMoney = document.getElementById('numMtn').value.trim();
+  s.wave = document.getElementById('numWave').value.trim();
+  setSettings(s);
+  toast('Numéros de collecte enregistrés.');
+  render();
+}
+
+/* ---- PDF export helpers for Comptabilité ---- */
+function pdfDrawHeader(doc, subtitle){
+  const s = getSettings()||{};
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 42;
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(33,80,60);
+  doc.text(s.assocName || 'Association', margin, 50);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(120,120,120);
+  let y = 66;
+  if(s.assocPhone){ doc.text('Tél : ' + s.assocPhone, margin, y); y += 14; }
+  doc.text(subtitle + ' — généré le ' + new Date().toLocaleDateString('fr-FR'), margin, y);
+  if(s.assocLogo){
+    try{ doc.addImage(s.assocLogo, pdfImageFormat(s.assocLogo), pageWidth-margin-46, 26, 46, 46); }catch(e){}
+  }
+  y += 16;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  return {y: y+26, margin, pageWidth};
+}
+
+function pdfRow(doc, x, y, label, value, opts){
+  opts = opts||{};
+  doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(90,100,95);
+  doc.text(label, x, y);
+  doc.setFont('helvetica','normal'); doc.setTextColor(opts.color ? opts.color[0] : 27, opts.color ? opts.color[1] : 43, opts.color ? opts.color[2] : 34);
+  doc.text(String(value), x+260, y, {align:'right'});
+}
+
+function exportApercuPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const t = computeAccountingTotals();
+  const members = getMembers();
+  let {y, margin} = pdfDrawHeader(doc, 'Bilan comptable');
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(33,80,60);
+  doc.text('Cotisations & adhésions', margin, y); y += 20;
+  pdfRow(doc, margin, y, 'Membres inscrits', members.length); y += 18;
+  pdfRow(doc, margin, y, 'Cotisations à jour', t.cotisationsAJour + ' membre(s)'); y += 18;
+  pdfRow(doc, margin, y, 'Total cotisations perçues', fmtFCFA(t.totalCotisations)); y += 18;
+  pdfRow(doc, margin, y, 'Total adhésions perçues', fmtFCFA(t.totalAdhesions)); y += 34;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(33,80,60);
+  doc.text('Répartition', margin, y); y += 20;
+  pdfRow(doc, margin, y, 'Cotisations', fmtFCFA(t.totalCotisations)); y += 18;
+  pdfRow(doc, margin, y, 'Adhésions', fmtFCFA(t.totalAdhesions)); y += 18;
+  pdfRow(doc, margin, y, 'Autres recettes', fmtFCFA(t.totalRecettesManuelles)); y += 18;
+  pdfRow(doc, margin, y, 'Dépenses', '- ' + fmtFCFA(t.totalDepenses), {color:[179,67,43]}); y += 18;
+  pdfRow(doc, margin, y, 'Achats', '- ' + fmtFCFA(t.totalAchats), {color:[179,67,43]}); y += 22;
+  doc.setDrawColor(226,223,209); doc.line(margin, y-8, margin+300, y-8);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(21,51,39);
+  doc.text('Solde de caisse', margin, y);
+  doc.text(fmtFCFA(t.solde), margin+260, y, {align:'right'});
+
+  doc.save('bilan_comptable.pdf');
+}
+
+function exportEntriesPDF(entries, title, filename, showType){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  let {y, margin, pageWidth} = pdfDrawHeader(doc, title);
+
+  const colDate = margin, colType = margin+70, colDesc = showType?margin+140:margin+70, colAmount = pageWidth-margin-70, colBy = pageWidth-margin-160;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(90,100,95);
+  doc.text('Date', colDate, y);
+  if(showType) doc.text('Type', colType, y);
+  doc.text('Description', colDesc, y);
+  doc.text('Par', colBy, y);
+  doc.text('Montant', pageWidth-margin, y, {align:'right'});
+  y += 8;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 16;
+
+  let total = 0;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(27,43,34);
+  if(!entries.length){
+    doc.setTextColor(140,140,140);
+    doc.text('Aucune entrée enregistrée.', margin, y);
+    y += 18;
+  }
+  entries.forEach(e=>{
+    total += Number(e.amount||0);
+    doc.setTextColor(27,43,34);
+    doc.text(fmtDate(e.date), colDate, y);
+    if(showType) doc.text(e.type==='depense'?'Dépense':'Achat', colType, y);
+    const descLines = doc.splitTextToSize(e.description||'', showType ? 170 : 240);
+    doc.text(descLines, colDesc, y);
+    doc.text(e.recordedBy||'—', colBy, y);
+    doc.text(fmtFCFA(e.amount), pageWidth-margin, y, {align:'right'});
+    y += Math.max(16, descLines.length*13);
+    if(y > 770){ doc.addPage(); y = 60; }
+  });
+
+  y += 10;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 18;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(21,51,39);
+  doc.text('Total', colDesc, y);
+  doc.text(fmtFCFA(total), pageWidth-margin, y, {align:'right'});
+
+  doc.save(filename);
+}
+
+function exportMouvementsPDF(){
+  const entries = getAccounting().filter(e=>e.type==='depense'||e.type==='achat').slice().reverse();
+  exportEntriesPDF(entries, 'Historique des dépenses & achats', 'depenses_achats.pdf', true);
+}
+
+function exportRecettesPDF(){
+  const entries = getAccounting().filter(e=>e.type==='recette').slice().reverse();
+  exportEntriesPDF(entries, 'Historique des autres recettes', 'autres_recettes.pdf', false);
+}
+
+/* ================= PHASE 3 : rôles autorisés à publier/administrer ================= */
+const STAFF_ROLES = ['createur','admin','tresoriere'];
+function isStaff(session){ return STAFF_ROLES.includes(session.role); }
+
+/* ================= ACTUALITÉS & BLOG ================= */
+function pageActualites(session){
+  const posts = getNews().slice().reverse();
+  return `
+    <div class="page-head"><h1>Fil d'actualités & blog</h1><p>Récits, articles et réussites de l'association.</p></div>
+    ${isStaff(session) ? `
+    <div class="card">
+      <h3 style="margin-top:0;">Publier un article</h3>
+      <form id="newsForm">
+        <div class="field"><label>Titre</label><input type="text" id="newsTitle" required placeholder="Ex : Notre collecte de fonds a été un succès !"></div>
+        <div class="field"><label>Contenu</label><textarea id="newsContent" rows="5" required style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border);font-family:var(--font-body);font-size:15px;background:#FCFBF8;"></textarea></div>
+        <button type="submit" class="btn btn-primary">${ICONS.plus} Publier</button>
+      </form>
+    </div>` : ''}
+    <div id="newsList">
+      ${posts.length ? posts.map(p=>newsCardHtml(p, session)).join('') : `<div class="card" style="text-align:center;color:var(--ink-soft);padding:40px;">Aucun article publié pour le moment.</div>`}
+    </div>
+  `;
+}
+function newsCardHtml(p, session){
+  const canDelete = isStaff(session) || p.author===session.fullName;
+  return `
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+      <div>
+        <h3 style="margin:0 0 4px;">${escapeHtml(p.title)}</h3>
+        <div style="font-size:12.5px;color:var(--ink-soft);">Par ${escapeHtml(p.author)} · ${fmtDateTime(p.createdAt)}</div>
+      </div>
+      ${canDelete ? `<button class="btn btn-danger btn-sm" style="flex-shrink:0;" onclick="deleteNews('${p.id}')">${ICONS.trash} Supprimer</button>` : ''}
+    </div>
+    <p style="white-space:pre-wrap;margin:14px 0 0;line-height:1.6;">${escapeHtml(p.content)}</p>
+  </div>`;
+}
+function deleteNews(id){
+  if(!confirm('Supprimer cet article ?')) return;
+  setNews(getNews().filter(p=>p.id!==id));
+  toast('Article supprimé.');
+  render();
+}
+
+/* ================= MESSAGERIE / FORUM ================= */
+let forumPresenceInterval = null;
+
+function pageForum(session){
+  const hidden = getHiddenMessages(session.username);
+  const messages = getForum().filter(m => !hidden.includes(m.id));
+  return `
+    <div class="page-head"><h1>Messagerie</h1><p>Espace d'échange entre membres et équipes de projets.</p></div>
+    <div id="presenceBar" class="card" style="padding:10px 16px;font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">Vérification des membres en ligne...</div>
+    <div class="card" style="max-height:480px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;" id="forumThread">
+      ${messages.length ? messages.map(m=>forumMessageHtml(m, session)).join('') : `<div style="text-align:center;color:var(--ink-soft);padding:30px;">Aucun message pour le moment. Lancez la discussion !</div>`}
+    </div>
+    <div id="typingIndicator" style="font-size:12.5px;color:var(--ink-soft);min-height:18px;margin:6px 2px;font-style:italic;"></div>
+    <div id="voiceRecordBar" class="card hidden" style="display:none;align-items:center;gap:12px;background:#FBEAD9;">
+      <span style="color:var(--danger);font-weight:700;">● Enregistrement... <span id="voiceTimer">0:00</span></span>
+      <button class="btn btn-danger btn-sm" onclick="stopVoiceRecording(true)">${ICONS.stop} Envoyer</button>
+      <button class="btn btn-ghost btn-sm" onclick="stopVoiceRecording(false)">Annuler</button>
+    </div>
+    <div class="card">
+      <form id="forumForm" style="display:flex;gap:10px;align-items:flex-end;">
+        <div class="field" style="flex:1;margin:0;">
+          <label>Votre message</label>
+          <input type="text" id="forumMsg" required placeholder="Écrivez un message...">
+        </div>
+        <button type="button" class="btn btn-topbar-sync" id="voiceBtn" title="Message vocal" style="padding:12px;">${ICONS.mic}</button>
+        <button type="submit" class="btn btn-primary">Envoyer</button>
+      </form>
+    </div>
+  `;
+}
+function forumMessageHtml(m, session){
+  const isMe = m.author===session.fullName;
+  const canDeleteEveryone = isMe || isStaff(session);
+  const bubbleContent = m.audio
+    ? `<audio controls src="${m.audio}" style="height:38px;max-width:220px;"></audio>`
+    : escapeHtml(m.message);
+  const authorUser = getUsers().find(u=>u.fullName===m.author);
+  const avatar = authorUser && authorUser.profilePhoto
+    ? `<img src="${authorUser.profilePhoto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+    : `<div style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${initials(m.author)}</div>`;
+  const bubbleColumn = `
+    <div style="max-width:100%;">
+      <div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:3px;${isMe?'text-align:right;':''}">${escapeHtml(m.author)} · ${roleLabel(m.role)} · ${fmtDateTime(m.createdAt)}${m.edited?' · modifié':''}</div>
+      <div style="background:${isMe?'var(--primary)':'var(--bg)'};color:${isMe?'#fff':'var(--ink)'};padding:${m.audio?'6px 8px':'10px 14px'};border-radius:14px;${isMe?'border-bottom-right-radius:4px;':'border-bottom-left-radius:4px;'}font-size:14.5px;">${bubbleContent}</div>
+      <div style="display:flex;gap:10px;margin-top:3px;${isMe?'justify-content:flex-end;':''}font-size:11px;">
+        ${isMe && !m.audio ? `<button onclick="editForumMessage('${m.id}')" style="background:none;border:none;color:#2B6CB0;font-weight:600;cursor:pointer;padding:2px;">Modifier</button>` : ''}
+        <button onclick="deleteForumMessageForMe('${m.id}')" style="background:none;border:none;color:var(--danger);font-weight:600;cursor:pointer;padding:2px;">Supprimer pour moi</button>
+        ${canDeleteEveryone ? `<button onclick="deleteForumMessageForEveryone('${m.id}')" style="background:none;border:none;color:var(--danger);font-weight:700;text-decoration:underline;cursor:pointer;padding:2px;">Supprimer pour tous</button>` : ''}
+      </div>
+    </div>`;
+  return `
+  <div style="align-self:${isMe?'flex-end':'flex-start'};max-width:78%;display:flex;gap:8px;${isMe?'flex-direction:row-reverse;':''}" id="msg_${m.id}">
+    ${avatar}
+    ${bubbleColumn}
+  </div>`;
+}
+function sendForumMessage(){
+  const input = document.getElementById('forumMsg');
+  const text = input.value.trim();
+  if(!text) return;
+  const session = getSession();
+  const messages = getForum();
+  messages.push({id:uid(), author:session.fullName, role:session.role, message:text, createdAt:new Date().toISOString()});
+  setForum(messages);
+  clearTimeout(window._typingTimeout);
+  window._isTypingNow = false;
+  pushPresence(session, {typing:false});
+  render();
+  setTimeout(()=>{
+    const thread = document.getElementById('forumThread');
+    if(thread) thread.scrollTop = thread.scrollHeight;
+    const newInput = document.getElementById('forumMsg');
+    if(newInput) newInput.focus();
+  }, 30);
+}
+
+/* ---- Messages vocaux ---- */
+const VOICE_MAX_SECONDS = 60;
+let voiceRecorder = null;
+let voiceChunks = [];
+let voiceStream = null;
+let voiceStartTime = null;
+let voiceTimerInterval = null;
+
+async function startVoiceRecording(){
+  if(!navigator.mediaDevices || !window.MediaRecorder){
+    toast("Votre navigateur ne permet pas l'enregistrement vocal.");
+    return;
+  }
+  try{
+    voiceStream = await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch(e){
+    toast("Impossible d'accéder au microphone. Vérifiez les autorisations de votre navigateur.");
+    return;
+  }
+  voiceChunks = [];
+  voiceRecorder = new MediaRecorder(voiceStream);
+  voiceRecorder.ondataavailable = e => { if(e.data.size>0) voiceChunks.push(e.data); };
+  voiceRecorder.start();
+  voiceStartTime = Date.now();
+
+  const bar = document.getElementById('voiceRecordBar');
+  if(bar){ bar.style.display = 'flex'; bar.classList.remove('hidden'); }
+  const btn = document.getElementById('voiceBtn');
+  if(btn) btn.style.display = 'none';
+
+  voiceTimerInterval = setInterval(()=>{
+    const elapsed = Math.floor((Date.now()-voiceStartTime)/1000);
+    const timerEl = document.getElementById('voiceTimer');
+    if(timerEl){
+      const mm = Math.floor(elapsed/60), ss = elapsed%60;
+      timerEl.textContent = `${mm}:${ss<10?'0':''}${ss}`;
+    }
+    if(elapsed >= VOICE_MAX_SECONDS){ stopVoiceRecording(true); }
+  }, 250);
+}
+
+function stopVoiceRecording(shouldSend){
+  clearInterval(voiceTimerInterval);
+  const bar = document.getElementById('voiceRecordBar');
+  if(bar){ bar.style.display = 'none'; bar.classList.add('hidden'); }
+  const btn = document.getElementById('voiceBtn');
+  if(btn) btn.style.display = '';
+
+  if(!voiceRecorder){ return; }
+  const recorder = voiceRecorder;
+  const stream = voiceStream;
+  voiceRecorder = null;
+
+  recorder.onstop = ()=>{
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); }
+    if(shouldSend && voiceChunks.length){
+      const blob = new Blob(voiceChunks, {type: recorder.mimeType || 'audio/webm'});
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const session = getSession();
+        const messages = getForum();
+        messages.push({id:uid(), author:session.fullName, role:session.role, audio:reader.result, createdAt:new Date().toISOString()});
+        setForum(messages);
+        render();
+        setTimeout(()=>{
+          const thread = document.getElementById('forumThread');
+          if(thread) thread.scrollTop = thread.scrollHeight;
+        }, 30);
+      };
+      reader.readAsDataURL(blob);
+    }
+  };
+  recorder.stop();
+}
+
+function editForumMessage(id){
+  const messages = getForum();
+  const idx = messages.findIndex(m=>m.id===id);
+  if(idx<0) return;
+  const newText = prompt('Modifier votre message :', messages[idx].message);
+  if(newText === null) return;
+  const trimmed = newText.trim();
+  if(!trimmed) return;
+  messages[idx].message = trimmed;
+  messages[idx].edited = true;
+  setForum(messages);
+  toast('Message modifié.');
+  render();
+}
+function deleteForumMessageForMe(id){
+  hideMessageForMe(id, getSession().username);
+  toast('Message supprimé pour vous.');
+  render();
+}
+function deleteForumMessageForEveryone(id){
+  if(!confirm('Supprimer ce message pour tout le monde ?')) return;
+  setForum(getForum().filter(m=>m.id!==id));
+  toast('Message supprimé pour tout le monde.');
+  render();
+}
+
+/* ---- Présence en ligne / en train d'écrire ---- */
+function startForumPresence(session){
+  stopForumPresence();
+  const tick = async ()=>{
+    await pushPresence(session, {typing: !!window._isTypingNow});
+    const presence = await pullPresence();
+    renderPresenceBar(presence, session);
+  };
+  tick();
+  forumPresenceInterval = setInterval(tick, 5000);
+}
+function stopForumPresence(){
+  if(forumPresenceInterval){ clearInterval(forumPresenceInterval); forumPresenceInterval = null; }
+}
+function renderPresenceBar(presence, session){
+  const bar = document.getElementById('presenceBar');
+  const typingEl = document.getElementById('typingIndicator');
+  if(!bar) return;
+  const now = Date.now();
+  const online = Object.values(presence).filter(p => p.fullName!==session.fullName && (now - new Date(p.lastActive).getTime()) < 45000);
+  const typingUsers = Object.values(presence).filter(p => p.fullName!==session.fullName && p.typing && (now - new Date(p.typingAt||0).getTime()) < 6000);
+  bar.innerHTML = online.length
+    ? `<span style="color:var(--primary);font-weight:600;">● En ligne :</span> ${online.map(o=>escapeHtml(o.fullName)).join(', ')}`
+    : `Vous êtes seul(e) ici pour le moment.`;
+  if(typingEl){
+    typingEl.textContent = typingUsers.length ? `${typingUsers.map(t=>t.fullName).join(', ')} ${typingUsers.length>1?'sont':'est'} en train d'écrire...` : '';
+  }
+}
+
+/* ================= CALENDRIER ================= */
+function pageCalendrier(session){
+  const events = getEvents().slice().sort((a,b)=>(a.date+ (a.time||'')).localeCompare(b.date+(b.time||'')));
+  const today = new Date().toISOString().slice(0,10);
+  const upcoming = events.filter(e=>e.date >= today);
+  const past = events.filter(e=>e.date < today).reverse();
+  return `
+    <div class="page-head"><h1>Calendrier interactif</h1><p>Réunions, assemblées générales et ateliers de l'association.</p></div>
+    ${isStaff(session) ? `
+    <div class="card">
+      <h3 style="margin-top:0;">Ajouter un événement</h3>
+      <form id="eventForm">
+        <div class="grid grid-2">
+          <div class="field"><label>Titre</label><input type="text" id="evTitle" required placeholder="Ex : Assemblée générale"></div>
+          <div class="field"><label>Lieu</label><input type="text" id="evLocation" placeholder="Ex : Siège de l'association"></div>
+          <div class="field"><label>Date</label><input type="date" id="evDate" required></div>
+          <div class="field"><label>Heure</label><input type="time" id="evTime"></div>
+        </div>
+        <div class="field"><label>Description</label><input type="text" id="evDesc" placeholder="Détails de l'événement"></div>
+        <button type="submit" class="btn btn-primary">${ICONS.plus} Ajouter</button>
+      </form>
+    </div>` : ''}
+    <h3 style="margin-bottom:12px;">À venir</h3>
+    <div class="grid grid-2" style="margin-bottom:26px;">
+      ${upcoming.length ? upcoming.map(e=>eventCardHtml(e, session)).join('') : `<div class="card" style="grid-column:1/-1;text-align:center;color:var(--ink-soft);padding:30px;">Aucun événement à venir.</div>`}
+    </div>
+    ${past.length ? `
+    <h3 style="margin-bottom:12px;color:var(--ink-soft);">Événements passés</h3>
+    <div class="grid grid-2">${past.map(e=>eventCardHtml(e, session, true)).join('')}</div>` : ''}
+  `;
+}
+function eventCardHtml(e, session, isPast){
+  const d = new Date(e.date+'T00:00:00');
+  const day = d.getDate();
+  const month = d.toLocaleDateString('fr-FR', {month:'short'}).replace('.','');
+  return `
+  <div class="card" style="display:flex;gap:14px;opacity:${isPast?'0.65':'1'};">
+    <div style="flex-shrink:0;width:56px;height:56px;border-radius:12px;background:${isPast?'var(--bg)':'var(--primary)'};color:${isPast?'var(--ink-soft)':'#fff'};display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <div style="font-size:19px;font-weight:700;line-height:1;">${day}</div>
+      <div style="font-size:10px;text-transform:uppercase;">${month}</div>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:600;font-size:15px;">${escapeHtml(e.title)}</div>
+      <div style="font-size:12.5px;color:var(--ink-soft);">${e.time?e.time+' · ':''}${escapeHtml(e.location||'')}</div>
+      ${e.description ? `<div style="font-size:13.5px;margin-top:6px;">${escapeHtml(e.description)}</div>` : ''}
+    </div>
+    ${isStaff(session) ? `<button class="btn btn-danger btn-sm" style="flex-shrink:0;align-self:flex-start;" onclick="deleteEvent('${e.id}')">${ICONS.trash} Supprimer</button>` : ''}
+  </div>`;
+}
+function deleteEvent(id){
+  if(!confirm('Supprimer cet événement ?')) return;
+  setEvents(getEvents().filter(e=>e.id!==id));
+  toast('Événement supprimé.');
+  render();
+}
+
+/* ================= GALERIE PHOTOS & VIDÉOS ================= */
+function pageGalerie(session){
+  const items = getGallery().slice().reverse();
+  return `
+    <div class="page-head"><h1>Galerie photos & vidéos</h1><p>Souvenirs et impact visuel des événements de l'association.</p></div>
+    <div class="card">
+      <h3 style="margin-top:0;">Ajouter une photo</h3>
+      <div class="grid grid-2">
+        <label class="file-drop" id="dropGallery">
+          <span class="file-drop-content">Cliquer pour choisir une photo</span>
+          <input type="file" id="galleryFile" accept="image/*">
+        </label>
+        <div class="field" style="margin:0;"><label>Légende</label><input type="text" id="galleryCaption" placeholder="Ex : Assemblée générale 2026"></div>
+      </div>
+      <small class="hint">Les photos sont automatiquement compressées avant l'enregistrement pour économiser l'espace de stockage.</small>
+      <div style="height:12px;"></div>
+      <button class="btn btn-primary" id="galleryUploadBtn">${ICONS.plus} Ajouter à la galerie</button>
+    </div>
+    <div class="grid grid-3" id="galleryGrid">
+      ${items.length ? items.map(g=>galleryItemHtml(g, session)).join('') : `<div class="card" style="grid-column:1/-1;text-align:center;color:var(--ink-soft);padding:30px;">Aucune photo pour le moment.</div>`}
+    </div>
+  `;
+}
+function galleryItemHtml(g, session){
+  const canDelete = isStaff(session) || g.uploadedBy===session.fullName;
+  return `
+  <div class="card" style="padding:10px;">
+    <img src="${g.image}" style="width:100%;height:150px;object-fit:cover;border-radius:10px;margin-bottom:8px;cursor:pointer;" onclick="openGalleryLightbox('${g.id}')">
+    <div style="font-size:13px;font-weight:600;">${escapeHtml(g.caption||'Sans légende')}</div>
+    <div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:6px;">${escapeHtml(g.uploadedBy)} · ${fmtDate(g.date)}</div>
+    ${canDelete ? `<button class="btn btn-danger btn-sm" onclick="deleteGalleryItem('${g.id}')">${ICONS.trash} Supprimer</button>` : ''}
+  </div>`;
+}
+function openGalleryLightbox(id){
+  const item = getGallery().find(g=>g.id===id);
+  if(!item) return;
+  closeLightbox();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-backdrop';
+  overlay.id = 'lightboxOverlay';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:640px;text-align:center;padding:20px;">
+      <img src="${item.image}" style="width:100%;border-radius:12px;margin-bottom:14px;">
+      <div style="font-weight:600;margin-bottom:4px;">${escapeHtml(item.caption||'Sans légende')}</div>
+      <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;">${escapeHtml(item.uploadedBy)} · ${fmtDate(item.date)}</div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <a href="${item.image}" download="photo_${item.id}.jpg" class="btn btn-accent">${ICONS.pdf} Télécharger</a>
+        <button class="btn btn-ghost" onclick="closeLightbox()">Fermer</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', e=>{ if(e.target === overlay) closeLightbox(); });
+  document.body.appendChild(overlay);
+}
+function closeLightbox(){
+  const el = document.getElementById('lightboxOverlay');
+  if(el) el.remove();
+}
+function deleteGalleryItem(id){
+  if(!confirm('Supprimer cette photo ?')) return;
+  setGallery(getGallery().filter(g=>g.id!==id));
+  toast('Photo supprimée.');
+  render();
+}
+async function uploadGalleryPhoto(){
+  const fileInput = document.getElementById('galleryFile');
+  const file = fileInput.files[0];
+  if(!file){ toast('Veuillez choisir une photo.'); return; }
+  const caption = document.getElementById('galleryCaption').value.trim();
+  try{
+    const compressed = await compressImageFile(file, 1000, 0.8);
+    const items = getGallery();
+    items.push({id:uid(), image:compressed, caption, uploadedBy:getSession().fullName, date:new Date().toISOString()});
+    setGallery(items);
+    toast('Photo ajoutée à la galerie.');
+    render();
+  }catch(e){
+    toast("Erreur lors de l'ajout de la photo.");
+  }
+}
+
+/* ================= STOCKAGE DE DOCUMENTS ================= */
+function pageDocuments(session){
+  const docs = getDocumentsStore().slice().reverse();
+  return `
+    <div class="page-head"><h1>Stockage de documents</h1><p>Statuts, comptes-rendus d'assemblée et chartes de l'association.</p></div>
+    ${isStaff(session) ? `
+    <div class="card">
+      <h3 style="margin-top:0;">Ajouter un document</h3>
+      <div class="grid grid-2">
+        <label class="file-drop" id="dropDoc">
+          <span class="file-drop-content">Cliquer pour choisir un fichier</span>
+          <input type="file" id="docFile" accept=".pdf,.doc,.docx,image/*">
+        </label>
+        <div class="field" style="margin:0;"><label>Nom du document</label><input type="text" id="docName" placeholder="Ex : Statuts de l'association"></div>
+      </div>
+      <small class="hint">Taille maximale recommandée : 3 Mo par fichier (stockage local du navigateur).</small>
+      <div style="height:12px;"></div>
+      <button class="btn btn-primary" id="docUploadBtn">${ICONS.plus} Ajouter le document</button>
+    </div>` : ''}
+    <div class="card">
+      <table>
+        <thead><tr><th>Nom</th><th>Ajouté par</th><th>Date</th><th></th></tr></thead>
+        <tbody>
+          ${docs.length ? docs.map(d=>`
+            <tr>
+              <td onclick="openDocumentPreview('${d.id}')" style="cursor:pointer;color:var(--primary);font-weight:600;">${escapeHtml(d.name)}</td>
+              <td>${escapeHtml(d.uploadedBy)}</td>
+              <td>${fmtDate(d.date)}</td>
+              <td style="display:flex;gap:8px;">
+                <a href="${d.file}" download="${escapeHtml(d.filename||d.name)}" class="btn btn-accent btn-sm" title="Télécharger">${ICONS.pdf} Télécharger</a>
+                ${isStaff(session) ? `<button class="btn btn-danger btn-sm" onclick="deleteDocument('${d.id}')">${ICONS.trash} Supprimer</button>` : ''}
+              </td>
+            </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun document partagé pour le moment.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+function deleteDocument(id){
+  if(!confirm('Supprimer ce document ?')) return;
+  setDocumentsStore(getDocumentsStore().filter(d=>d.id!==id));
+  toast('Document supprimé.');
+  render();
+}
+function dataURLtoBlob(dataurl){
+  const arr = dataurl.split(',');
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : '';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while(n--){ u8arr[n] = bstr.charCodeAt(n); }
+  return new Blob([u8arr], {type:mime});
+}
+function openDocumentPreview(id){
+  const doc = getDocumentsStore().find(d=>d.id===id);
+  if(!doc) return;
+  try{
+    const blob = dataURLtoBlob(doc.file);
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  }catch(e){
+    toast("Impossible d'ouvrir l'aperçu de ce document. Utilisez le bouton de téléchargement.");
+  }
+}
+function uploadDocument(){
+  const fileInput = document.getElementById('docFile');
+  const file = fileInput.files[0];
+  if(!file){ toast('Veuillez choisir un fichier.'); return; }
+  if(file.size > 3.5*1024*1024){ toast('Fichier trop volumineux (max ~3 Mo).'); return; }
+  const name = document.getElementById('docName').value.trim() || file.name;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const docs = getDocumentsStore();
+    docs.push({id:uid(), name, filename:file.name, file:reader.result, uploadedBy:getSession().fullName, date:new Date().toISOString()});
+    setDocumentsStore(docs);
+    toast('Document ajouté.');
+    render();
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ================= DONS & COLLECTE (Phase 4) ================= */
+let donsTab = 'faire-un-don';
+
+function pageDons(session){
+  const campaigns = getCampaigns().filter(c=>c.active !== false);
+  const donations = getDonations();
+  const totalConfirmed = donations.filter(d=>d.status==='confirme').reduce((s,d)=>s+Number(d.amount||0),0);
+  return `
+    <div class="page-head"><h1>Dons & collecte de fonds</h1><p>Soutenez les projets de l'association ou faites un don libre.</p></div>
+    <div class="grid grid-3" style="margin-bottom:18px;">
+      <div class="stat"><div class="n">${fmtFCFA(totalConfirmed)}</div><div class="l">Total des dons confirmés</div></div>
+      <div class="stat"><div class="n">${campaigns.length}</div><div class="l">Campagnes actives</div></div>
+      <div class="stat"><div class="n">${donations.filter(d=>d.status==='en_attente').length}</div><div class="l">Dons en attente</div></div>
+    </div>
+    <div class="tabs" id="donsTabs">
+      <button data-tab="faire-un-don" class="${donsTab==='faire-un-don'?'active':''}">Faire un don</button>
+      <button data-tab="campagnes" class="${donsTab==='campagnes'?'active':''}">Campagnes</button>
+      ${isStaff(session) ? `<button data-tab="valider" class="${donsTab==='valider'?'active':''}">À valider${donations.filter(d=>d.status==='en_attente').length?` (${donations.filter(d=>d.status==='en_attente').length})`:''}</button>` : ''}
+      <button data-tab="historique" class="${donsTab==='historique'?'active':''}">Historique</button>
+    </div>
+    <div id="donsContent">${renderDonsTab(donsTab, session)}</div>
+  `;
+}
+
+function renderDonsTab(tab, session){
+  const campaigns = getCampaigns();
+  const donations = getDonations();
+
+  if(tab==='faire-un-don'){
+    return `
+    <div class="card" style="max-width:520px;">
+      <h3 style="margin-top:0;">Je fais un don</h3>
+      <form id="donForm">
+        <div class="field"><label>Campagne (optionnel)</label>
+          <select id="donCampaign">
+            <option value="">Don libre (non affecté)</option>
+            ${campaigns.filter(c=>c.active!==false).map(c=>`<option value="${c.id}">${escapeHtml(c.title)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Montant (FCFA)</label><input type="number" id="donAmount" min="0" required></div>
+        <div class="field"><label>Moyen de paiement</label>
+          <select id="donMethod">
+            <option value="Orange Money">Orange Money</option>
+            <option value="Moov Money">Moov Money</option>
+            <option value="MTN Money">MTN Money</option>
+            <option value="Wave">Wave</option>
+            <option value="Espèces">Espèces</option>
+          </select>
+        </div>
+        <div class="field"><label>Référence de transaction (optionnel)</label><input type="text" id="donRef" placeholder="Ex : TX123456"></div>
+        <small class="hint">Envoyez d'abord le montant sur l'un des numéros de collecte (voir Comptabilité), puis déclarez votre don ici. Il sera confirmé par le trésorier et un reçu sera généré.</small>
+        <div style="height:10px;"></div>
+        <button type="submit" class="btn btn-primary btn-block">Déclarer mon don</button>
+      </form>
+    </div>`;
+  }
+
+  if(tab==='campagnes'){
+    return `
+      ${isStaff(session) ? `
+      <div class="card">
+        <h3 style="margin-top:0;">Créer une campagne</h3>
+        <form id="campaignForm">
+          <div class="field"><label>Titre</label><input type="text" id="campTitle" required placeholder="Ex : Rénovation du siège"></div>
+          <div class="field"><label>Objectif (FCFA)</label><input type="number" id="campTarget" min="0" required></div>
+          <div class="field"><label>Description</label><input type="text" id="campDesc" placeholder="Détails du projet"></div>
+          <button type="submit" class="btn btn-primary">${ICONS.plus} Créer la campagne</button>
+        </form>
+      </div>` : ''}
+      <div class="grid grid-2">
+        ${campaigns.length ? campaigns.map(c=>campaignCardHtml(c, session)).join('') : `<div class="card" style="grid-column:1/-1;text-align:center;color:var(--ink-soft);padding:30px;">Aucune campagne pour le moment.</div>`}
+      </div>`;
+  }
+
+  if(tab==='valider'){
+    const pending = donations.filter(d=>d.status==='en_attente');
+    return `
+    <div class="card">
+      <h3 style="margin-top:0;">Dons en attente de validation</h3>
+      ${pending.length ? pending.map(d=>`
+        <div class="summary-row" style="align-items:center;">
+          <span class="k">${fmtDate(d.date)} · ${escapeHtml(d.donorName)} · ${d.campaignTitle?escapeHtml(d.campaignTitle):'Don libre'} · ${escapeHtml(d.method)}${d.reference?' · Réf: '+escapeHtml(d.reference):''}</span>
+          <span class="v" style="display:flex;gap:8px;align-items:center;">
+            ${fmtFCFA(d.amount)}
+            <button class="btn btn-primary btn-sm" onclick="confirmDonation('${d.id}')">Confirmer</button>
+            <button class="btn btn-danger btn-sm" onclick="rejectDonation('${d.id}')">Rejeter</button>
+          </span>
+        </div>`).join('') : `<div style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun don en attente.</div>`}
+    </div>`;
+  }
+
+  if(tab==='historique'){
+    const confirmed = donations.filter(d=>d.status==='confirme').slice().reverse();
+    return `
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">Historique des dons confirmés</h3>
+        <button class="btn btn-accent" onclick="exportDonationsHistoryPDF()">${ICONS.pdf} Télécharger l'historique (PDF)</button>
+      </div>
+      <table style="margin-top:14px;">
+        <thead><tr><th>Date</th><th>Donateur</th><th>Campagne</th><th>Montant</th><th></th></tr></thead>
+        <tbody>
+          ${confirmed.length ? confirmed.map(d=>`
+            <tr>
+              <td>${fmtDate(d.date)}</td>
+              <td>${escapeHtml(d.donorName)}</td>
+              <td>${d.campaignTitle?escapeHtml(d.campaignTitle):'Don libre'}</td>
+              <td>${fmtFCFA(d.amount)}</td>
+              <td><button class="btn btn-accent btn-sm" onclick="exportDonationReceiptPDF('${d.id}')">${ICONS.pdf} Reçu</button></td>
+            </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun don confirmé pour le moment.</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+  }
+  return '';
+}
+
+function campaignCardHtml(c, session){
+  const donations = getDonations().filter(d=>d.campaignId===c.id && d.status==='confirme');
+  const raised = donations.reduce((s,d)=>s+Number(d.amount||0),0);
+  const pct = c.targetAmount ? Math.min(100, Math.round(raised/c.targetAmount*100)) : 0;
+  return `
+  <div class="card">
+    <h3 style="margin-top:0;">${escapeHtml(c.title)}</h3>
+    ${c.description ? `<p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px;">${escapeHtml(c.description)}</p>` : ''}
+    <div style="background:var(--bg);border-radius:20px;height:10px;overflow:hidden;margin:10px 0;">
+      <div style="background:var(--primary);height:100%;width:${pct}%;"></div>
+    </div>
+    <div class="summary-row"><span class="k">Collecté</span><span class="v">${fmtFCFA(raised)} / ${fmtFCFA(c.targetAmount)} (${pct}%)</span></div>
+    ${isStaff(session) ? `<button class="btn btn-danger btn-sm" style="margin-top:8px;" onclick="deleteCampaign('${c.id}')">${ICONS.trash} Supprimer</button>` : ''}
+  </div>`;
+}
+
+function declareDonation(session){
+  const campaignId = document.getElementById('donCampaign').value;
+  const campaign = campaignId ? getCampaigns().find(c=>c.id===campaignId) : null;
+  const amount = Number(document.getElementById('donAmount').value);
+  const method = document.getElementById('donMethod').value;
+  const reference = document.getElementById('donRef').value.trim();
+  if(!amount){ toast('Veuillez indiquer un montant.'); return; }
+  const donations = getDonations();
+  donations.push({
+    id: uid(), donorName: session.fullName, campaignId: campaignId||null, campaignTitle: campaign?campaign.title:null,
+    amount, method, reference, date: new Date().toISOString().slice(0,10),
+    status:'en_attente', declaredBy: session.fullName, declaredAt: new Date().toISOString()
+  });
+  setDonations(donations);
+  toast('Don déclaré. Il sera confirmé par le trésorier.');
+  render();
+}
+function confirmDonation(id){
+  const donations = getDonations();
+  const idx = donations.findIndex(d=>d.id===id);
+  if(idx<0) return;
+  const d = donations[idx];
+  const session = getSession();
+  d.status = 'confirme';
+  d.confirmedBy = session.fullName;
+  d.confirmedAt = new Date().toISOString();
+  setDonations(donations);
+
+  const entries = getAccounting();
+  entries.push({
+    id: uid(), type:'recette', amount: d.amount,
+    description: `Don — ${d.donorName}${d.campaignTitle?' ('+d.campaignTitle+')':''}`,
+    date: d.date, recordedBy: session.fullName, recordedAt: new Date().toISOString()
+  });
+  setAccounting(entries);
+
+  toast('Don confirmé et enregistré en comptabilité.');
+  render();
+}
+function rejectDonation(id){
+  if(!confirm('Rejeter ce don ?')) return;
+  const donations = getDonations();
+  const idx = donations.findIndex(d=>d.id===id);
+  if(idx<0) return;
+  donations[idx].status = 'rejete';
+  setDonations(donations);
+  toast('Don rejeté.');
+  render();
+}
+function deleteCampaign(id){
+  if(!confirm('Supprimer cette campagne ?')) return;
+  setCampaigns(getCampaigns().filter(c=>c.id!==id));
+  toast('Campagne supprimée.');
+  render();
+}
+function exportDonationReceiptPDF(id){
+  const d = getDonations().find(x=>x.id===id);
+  if(!d) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  let {y, margin, pageWidth} = pdfDrawHeader(doc, 'Reçu de don');
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(21,51,39);
+  doc.text('Reçu officiel de don', margin, y); y += 30;
+
+  pdfRow(doc, margin, y, 'Donateur', d.donorName); y += 18;
+  pdfRow(doc, margin, y, 'Date du don', fmtDate(d.date)); y += 18;
+  pdfRow(doc, margin, y, 'Montant', fmtFCFA(d.amount)); y += 18;
+  pdfRow(doc, margin, y, 'Moyen de paiement', d.method); y += 18;
+  if(d.reference){ pdfRow(doc, margin, y, 'Référence', d.reference); y += 18; }
+  pdfRow(doc, margin, y, 'Affectation', d.campaignTitle || 'Don libre'); y += 18;
+  pdfRow(doc, margin, y, 'Confirmé par', d.confirmedBy || '—'); y += 34;
+
+  doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(140,140,140);
+  doc.text("Ce reçu atteste qu'un don a été reçu par l'association à la date indiquée.", margin, y);
+
+  doc.save(`recu_don_${(d.donorName||'donateur').replace(/\s+/g,'_')}.pdf`);
+}
+
+function exportDonationsHistoryPDF(){
+  const confirmed = getDonations().filter(d=>d.status==='confirme').slice().reverse();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  let {y, margin, pageWidth} = pdfDrawHeader(doc, 'Historique des dons confirmés');
+
+  const colDate = margin, colDonor = margin+70, colCamp = margin+220, colAmount = pageWidth-margin;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(90,100,95);
+  doc.text('Date', colDate, y);
+  doc.text('Donateur', colDonor, y);
+  doc.text('Campagne', colCamp, y);
+  doc.text('Montant', colAmount, y, {align:'right'});
+  y += 8;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 16;
+
+  let total = 0;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(27,43,34);
+  if(!confirmed.length){
+    doc.setTextColor(140,140,140);
+    doc.text('Aucun don confirmé pour le moment.', margin, y);
+    y += 18;
+  }
+  confirmed.forEach(d=>{
+    total += Number(d.amount||0);
+    doc.setTextColor(27,43,34);
+    doc.text(fmtDate(d.date), colDate, y);
+    doc.text(doc.splitTextToSize(d.donorName||'', 140), colDonor, y);
+    doc.text(doc.splitTextToSize(d.campaignTitle||'Don libre', 110), colCamp, y);
+    doc.text(fmtFCFA(d.amount), colAmount, y, {align:'right'});
+    y += 16;
+    if(y > 770){ doc.addPage(); y = 60; }
+  });
+
+  y += 10;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 18;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(21,51,39);
+  doc.text('Total des dons confirmés', colDonor, y);
+  doc.text(fmtFCFA(total), colAmount, y, {align:'right'});
+
+  doc.save('historique_dons.pdf');
+}
+
+/* ================= BOUTIQUE EN LIGNE (Phase 4) ================= */
+let boutiqueTab = 'produits';
+
+function pageBoutique(session){
+  const orders = getOrders();
+  return `
+    <div class="page-head"><h1>Boutique en ligne</h1><p>Produits dérivés de l'association pour financer ses actions.</p></div>
+    <div class="tabs" id="boutiqueTabs">
+      <button data-tab="produits" class="${boutiqueTab==='produits'?'active':''}">Produits</button>
+      <button data-tab="mes-commandes" class="${boutiqueTab==='mes-commandes'?'active':''}">Mes commandes</button>
+      ${isStaff(session) ? `<button data-tab="gestion-commandes" class="${boutiqueTab==='gestion-commandes'?'active':''}">Commandes${orders.filter(o=>o.status==='en_attente').length?` (${orders.filter(o=>o.status==='en_attente').length})`:''}</button>` : ''}
+    </div>
+    <div id="boutiqueContent">${renderBoutiqueTab(boutiqueTab, session)}</div>
+  `;
+}
+
+function renderBoutiqueTab(tab, session){
+  const products = getProducts();
+  const orders = getOrders();
+
+  if(tab==='produits'){
+    return `
+      ${isStaff(session) ? `
+      <div class="card">
+        <h3 style="margin-top:0;">Ajouter un produit</h3>
+        <form id="productForm">
+          <div class="grid grid-2">
+            <div class="field"><label>Nom du produit</label><input type="text" id="prodName" required placeholder="Ex : T-shirt de l'association"></div>
+            <div class="field"><label>Prix (FCFA)</label><input type="number" id="prodPrice" min="0" required></div>
+          </div>
+          <div class="field"><label>Description</label><input type="text" id="prodDesc" placeholder="Détails du produit"></div>
+          <label class="file-drop" id="dropProduct">
+            <span class="file-drop-content">Cliquer pour ajouter une photo (optionnel)</span>
+            <input type="file" id="prodImage" accept="image/*">
+          </label>
+          <div style="height:10px;"></div>
+          <button type="submit" class="btn btn-primary">${ICONS.plus} Ajouter le produit</button>
+        </form>
+      </div>` : ''}
+      <div class="grid grid-3" id="productGrid">
+        ${products.length ? products.map(p=>productCardHtml(p, session)).join('') : `<div class="card" style="grid-column:1/-1;text-align:center;color:var(--ink-soft);padding:30px;">Aucun produit pour le moment.</div>`}
+      </div>`;
+  }
+
+  if(tab==='mes-commandes'){
+    const mine = orders.filter(o=>o.buyerName===session.fullName).slice().reverse();
+    return `
+    <div class="card">
+      <table>
+        <thead><tr><th>Date</th><th>Produit</th><th>Qté</th><th>Total</th><th>Statut</th></tr></thead>
+        <tbody>
+          ${mine.length ? mine.map(o=>`
+            <tr>
+              <td>${fmtDate(o.date)}</td>
+              <td>${escapeHtml(o.productName)}</td>
+              <td>${o.quantity}</td>
+              <td>${fmtFCFA(o.totalAmount)}</td>
+              <td>${orderStatusBadge(o.status)}</td>
+            </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);padding:20px;">Vous n'avez pas encore commandé.</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+  }
+
+  if(tab==='gestion-commandes'){
+    const all = orders.slice().reverse();
+    return `
+    <div class="card">
+      <table>
+        <thead><tr><th>Date</th><th>Acheteur</th><th>Produit</th><th>Qté</th><th>Total</th><th>Statut</th><th></th></tr></thead>
+        <tbody>
+          ${all.length ? all.map(o=>`
+            <tr>
+              <td>${fmtDate(o.date)}</td>
+              <td>${escapeHtml(o.buyerName)}</td>
+              <td>${escapeHtml(o.productName)}</td>
+              <td>${o.quantity}</td>
+              <td>${fmtFCFA(o.totalAmount)}</td>
+              <td>${orderStatusBadge(o.status)}</td>
+              <td style="display:flex;gap:6px;">
+                ${o.status==='en_attente' ? `<button class="btn btn-primary btn-sm" onclick="confirmOrder('${o.id}')">Confirmer</button><button class="btn btn-danger btn-sm" onclick="cancelOrder('${o.id}')">Annuler</button>` : ''}
+              </td>
+            </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune commande pour le moment.</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+  }
+  return '';
+}
+function orderStatusBadge(status){
+  if(status==='confirme') return `<span class="badge badge-ok">Confirmée</span>`;
+  if(status==='annule') return `<span class="badge badge-warn" style="background:#F7DADA;color:var(--danger);">Annulée</span>`;
+  return `<span class="badge badge-warn">En attente</span>`;
+}
+function productCardHtml(p, session){
+  return `
+  <div class="card" style="padding:12px;">
+    ${p.image ? `<img src="${p.image}" style="width:100%;height:140px;object-fit:cover;border-radius:10px;margin-bottom:8px;">` : ''}
+    <div style="font-weight:700;font-size:15px;">${escapeHtml(p.name)}</div>
+    ${p.description ? `<div style="font-size:12.5px;color:var(--ink-soft);margin:4px 0;">${escapeHtml(p.description)}</div>` : ''}
+    <div style="font-weight:700;color:var(--primary);font-size:16px;margin:6px 0;">${fmtFCFA(p.price)}</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="number" id="qty_${p.id}" value="1" min="1" style="width:60px;padding:8px;border-radius:8px;border:1.5px solid var(--border);">
+      <button class="btn btn-primary btn-sm" onclick="orderProduct('${p.id}')">Commander</button>
+    </div>
+    ${isStaff(session) ? `<button class="btn btn-danger btn-sm" style="margin-top:8px;" onclick="deleteProduct('${p.id}')">${ICONS.trash} Supprimer</button>` : ''}
+  </div>`;
+}
+function orderProduct(productId){
+  const product = getProducts().find(p=>p.id===productId);
+  if(!product) return;
+  const qtyInput = document.getElementById('qty_'+productId);
+  const quantity = Math.max(1, Number(qtyInput.value)||1);
+  const session = getSession();
+  const orders = getOrders();
+  orders.push({
+    id: uid(), productId, productName: product.name, quantity,
+    totalAmount: product.price*quantity, buyerName: session.fullName,
+    date: new Date().toISOString().slice(0,10), status:'en_attente', createdAt: new Date().toISOString()
+  });
+  setOrders(orders);
+  toast('Commande enregistrée. Le trésorier vous contactera pour le paiement.');
+  render();
+}
+function confirmOrder(id){
+  const orders = getOrders();
+  const idx = orders.findIndex(o=>o.id===id);
+  if(idx<0) return;
+  const o = orders[idx];
+  const session = getSession();
+  o.status = 'confirme';
+  setOrders(orders);
+  const entries = getAccounting();
+  entries.push({
+    id: uid(), type:'recette', amount: o.totalAmount,
+    description: `Vente boutique — ${o.productName} x${o.quantity} (${o.buyerName})`,
+    date: o.date, recordedBy: session.fullName, recordedAt: new Date().toISOString()
+  });
+  setAccounting(entries);
+  toast('Commande confirmée et enregistrée en comptabilité.');
+  render();
+}
+function cancelOrder(id){
+  if(!confirm('Annuler cette commande ?')) return;
+  const orders = getOrders();
+  const idx = orders.findIndex(o=>o.id===id);
+  if(idx<0) return;
+  orders[idx].status = 'annule';
+  setOrders(orders);
+  toast('Commande annulée.');
+  render();
+}
+function deleteProduct(id){
+  if(!confirm('Supprimer ce produit ?')) return;
+  setProducts(getProducts().filter(p=>p.id!==id));
+  toast('Produit supprimé.');
+  render();
+}
+
+/* ================= MON PROFIL ================= */
+function pageProfil(session){
+  const user = getUsers().find(u=>u.username===session.username) || {};
+  return `
+    <div class="page-head"><h1>Mon profil</h1><p>Vos informations personnelles, visibles par les autres membres.</p></div>
+    <div class="card" style="max-width:520px;">
+      <h3 style="margin-top:0;">Photo de profil</h3>
+      <div style="display:flex;align-items:center;gap:18px;margin-bottom:8px;">
+        ${user.profilePhoto
+          ? `<img src="${user.profilePhoto}" style="width:110px;height:110px;border-radius:50%;object-fit:cover;flex-shrink:0;box-shadow:0 0 0 4px var(--accent-soft);">`
+          : `<div style="width:110px;height:110px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:36px;font-weight:600;flex-shrink:0;box-shadow:0 0 0 4px var(--accent-soft);">${initials(session.fullName)}</div>`}
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label class="btn btn-edit" id="dropProfilePhoto" style="cursor:pointer;">
+            ${ICONS.plus}<span class="file-drop-content">Modifier la photo</span>
+            <input type="file" id="profilePhotoInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;">
+          </label>
+          ${user.profilePhoto ? `<button type="button" class="btn btn-danger btn-sm" onclick="removeProfilePhoto()">${ICONS.trash} Supprimer la photo</button>` : ''}
+        </div>
+      </div>
+      <small class="hint">Cette photo est propre à votre profil — elle est différente de la photo utilisée dans votre fiche d'adhérent, et elle apparaît aussi dans la Messagerie.</small>
+    </div>
+    <div class="card" style="max-width:520px;">
+      <h3 style="margin-top:0;">Informations</h3>
+      <form id="profilForm">
+        <div class="field"><label>Nom affiché</label><input type="text" id="profilName" value="${escapeHtml(user.fullName||session.fullName)}" required></div>
+        <div class="field"><label>Numéro de téléphone</label><input type="tel" id="profilPhone" value="${escapeHtml(user.phone||'')}" placeholder="Ex : 07 00 00 00 00"></div>
+        <div class="field"><label>Adresse e-mail</label><input type="email" id="profilEmail" value="${escapeHtml(user.email||'')}" placeholder="Ex : nom@exemple.com"></div>
+        <div style="display:flex;gap:10px;">
+          <button type="submit" class="btn btn-edit">Modifier mon profil</button>
+          <button type="button" class="btn btn-danger" onclick="resetProfileInfo()">${ICONS.trash} Supprimer mes informations</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+async function saveProfile(session){
+  const users = getUsers();
+  const idx = users.findIndex(u=>u.username===session.username);
+  if(idx<0) return;
+  const newName = document.getElementById('profilName').value.trim() || session.fullName;
+  users[idx].fullName = newName;
+  users[idx].phone = document.getElementById('profilPhone').value.trim();
+  users[idx].email = document.getElementById('profilEmail').value.trim();
+
+  const photoInput = document.getElementById('profilePhotoInput');
+  if(photoInput.files[0]){
+    try{
+      users[idx].profilePhoto = await compressImageFile(photoInput.files[0], 500, 0.85);
+    }catch(e){ /* on garde l'ancienne photo si la compression échoue */ }
+  }
+  setUsers(users);
+
+  // Mettre à jour la session en cours pour refléter immédiatement le nouveau nom
+  const s = getSession();
+  s.fullName = newName;
+  setSession(s);
+
+  toast('Profil enregistré.');
+  render();
+}
+function removeProfilePhoto(){
+  const session = getSession();
+  const users = getUsers();
+  const idx = users.findIndex(u=>u.username===session.username);
+  if(idx<0) return;
+  delete users[idx].profilePhoto;
+  setUsers(users);
+  toast('Photo de profil supprimée.');
+  render();
+}
+function resetProfileInfo(){
+  if(!confirm('Supprimer votre téléphone, e-mail et nom personnalisé ? Votre photo ne sera pas affectée.')) return;
+  const session = getSession();
+  const users = getUsers();
+  const idx = users.findIndex(u=>u.username===session.username);
+  if(idx<0) return;
+  users[idx].fullName = users[idx].username;
+  users[idx].phone = '';
+  users[idx].email = '';
+  setUsers(users);
+  const s = getSession();
+  s.fullName = users[idx].username;
+  setSession(s);
+  toast('Informations réinitialisées.');
+  render();
+}
+
+/* ================= OPTIONS ================= */
+let optionsUnlocked = false;
+
+function pageOptions(session){
+  if(session.role !== 'createur'){
+    return `<div class="card">Accès réservé au créateur de l'application.</div>`;
+  }
+  if(!optionsUnlocked){
+    return `
+    <div class="page-head"><h1>Options</h1><p>Espace réservé au créateur de l'application.</p></div>
+    <div class="options-gate">
+      <div class="options-gate-head">
+        <div class="options-gate-icon">${ICONS.lock}</div>
+        <h2>Accès créateur</h2>
+        <p>Connectez-vous pour configurer l'application.</p>
+      </div>
+      <div class="options-gate-body">
+        <div class="field"><label>Nom d'utilisateur</label><input type="text" id="optUser"></div>
+        <div class="field"><label>Mot de passe</label><input type="password" id="optPass"></div>
+        <button class="btn btn-primary btn-block" onclick="unlockOptions()">${ICONS.lock} Déverrouiller les options</button>
+        <div class="login-error" id="optError"></div>
+      </div>
+    </div>`;
+  }
+  return renderOptionsPanel();
+}
+
+function unlockOptions(){
+  const u = document.getElementById('optUser').value.trim();
+  const p = document.getElementById('optPass').value;
+  if(u===CREATOR_NAME && p===CREATOR_PASS){
+    optionsUnlocked = true;
+    render();
+  } else {
+    document.getElementById('optError').textContent = 'Identifiants incorrects.';
+  }
+}
+
+function renderOptionsPanel(){
+  const s = getSettings()||{};
+  const users = getUsers();
+  const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
+  return `
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-05-D)</span></p></div>
+    ${lockedWarn}
+    <div class="tabs" id="optTabs">
+      <button data-tab="identite" class="active">Identité de l'association</button>
+      <button data-tab="validite">Période d'utilisation</button>
+      <button data-tab="montants">Montants cotisation/adhésion</button>
+      <button data-tab="acces">Droits d'accès</button>
+    </div>
+
+    <div class="opt-panel" data-panel="identite">
+      <div class="card" style="max-width:520px;">
+        <div class="field"><label>Nom de l'association</label><input type="text" id="optAssocName" value="${escapeHtml(s.assocName||'')}"></div>
+        <div class="field"><label>Téléphone de l'association</label><input type="tel" id="optAssocPhone" value="${escapeHtml(s.assocPhone||'')}" placeholder="Ex : +225 07 00 00 00 00">
+          <small class="hint">Ce numéro apparaîtra, avec le nom et le logo, sur tous les documents PDF téléchargés.</small>
+        </div>
+        <div class="field">
+          <label>Logo de l'association</label>
+          <label class="file-drop ${s.assocLogo?'has-file':''}" id="drop_logo">
+            ${s.assocLogo?`<img src="${s.assocLogo}" class="file-thumb">Cliquer pour changer le logo`:'Cliquer pour ajouter un logo'}
+            <input type="file" id="optLogo" accept="image/*">
+          </label>
+        </div>
+        <button class="btn btn-primary" onclick="saveIdentity()">Enregistrer</button>
+      </div>
+    </div>
+
+    <div class="opt-panel hidden" data-panel="validite">
+      <div class="card" style="max-width:420px;">
+        <div class="field">
+          <label>Début de la période d'utilisation</label>
+          <input type="date" id="optStart" value="${s.usageStartDate||''}">
+        </div>
+        <div class="field">
+          <label>Fin de la période d'utilisation</label>
+          <input type="date" id="optExpiry" value="${s.expiryDate||''}">
+          <small class="hint">Passé cette date, l'application se bloque pour tous les utilisateurs sauf vous (créateur), qui pourrez toujours modifier cette période depuis Options.</small>
+        </div>
+        <button class="btn btn-primary" onclick="saveExpiry()">Enregistrer</button>
+      </div>
+    </div>
+
+    <div class="opt-panel hidden" data-panel="montants">
+      <div class="card" style="max-width:420px;">
+        <div class="field"><label>Montant de l'adhésion (FCFA)</label><input type="number" id="optAdhesion" value="${s.montantAdhesion||0}"></div>
+        <div class="field"><label>Montant de la cotisation (FCFA)</label><input type="number" id="optCotisation" value="${s.montantCotisation||0}"></div>
+        <small class="hint">Ces montants seront ceux prélevés via Orange Money, Moov Money, MTN Money et Wave (activation en Phase 4). Les numéros de collecte seront gérés dans le module Comptabilité.</small>
+        <div style="height:10px;"></div>
+        <button class="btn btn-primary" onclick="saveMontants()">Enregistrer</button>
+      </div>
+    </div>
+
+    <div class="opt-panel hidden" data-panel="acces">
+      <div class="card">
+        <h3 style="margin-top:0;">Créer un utilisateur</h3>
+        <div class="grid grid-2">
+          <div class="field"><label>Nom complet</label><input type="text" id="newUserName"></div>
+          <div class="field"><label>Nom d'utilisateur</label><input type="text" id="newUserLogin"></div>
+          <div class="field"><label>Mot de passe</label><input type="password" id="newUserPass"></div>
+          <div class="field"><label>Rôle</label>
+            <select id="newUserRole">
+              <option value="admin">Administrateur</option>
+              <option value="tresoriere">Trésorier(ère)</option>
+              <option value="membre">Membre simple</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="createUser()">${ICONS.plus} Créer l'utilisateur</button>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0;">Utilisateurs & rôles</h3>
+        <table>
+          <thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th></th></tr></thead>
+          <tbody>
+            ${users.map(u=>`
+              <tr>
+                <td>${escapeHtml(u.fullName||u.username)}</td>
+                <td>${escapeHtml(u.username)}</td>
+                <td>${roleLabel(u.role)}</td>
+                <td>${u.role!=='createur' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">${ICONS.trash} Supprimer</button>` : '<span style="color:var(--ink-soft);font-size:12px;">Créateur</span>'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+function roleLabel(r){
+  return {createur:'Créateur', admin:'Administrateur', tresoriere:'Trésorier(ère)', membre:'Membre simple'}[r] || r;
+}
+
+function saveIdentity(){
+  const s = getSettings()||{};
+  s.assocName = document.getElementById('optAssocName').value.trim() || 'Mon Association';
+  s.assocPhone = document.getElementById('optAssocPhone').value.trim();
+  const logoInput = document.getElementById('optLogo');
+  if(logoInput.dataset.value) s.assocLogo = logoInput.dataset.value;
+  setSettings(s);
+  toast('Identité de l\'association enregistrée.');
+  render();
+}
+function saveExpiry(){
+  const s = getSettings()||{};
+  s.usageStartDate = document.getElementById('optStart').value;
+  s.expiryDate = document.getElementById('optExpiry').value;
+  setSettings(s);
+  toast('Période d\'utilisation enregistrée.');
+  render();
+}
+function saveMontants(){
+  const s = getSettings()||{};
+  s.montantAdhesion = Number(document.getElementById('optAdhesion').value)||0;
+  s.montantCotisation = Number(document.getElementById('optCotisation').value)||0;
+  setSettings(s);
+  toast('Montants enregistrés.');
+  render();
+}
+function createUser(){
+  const fullName = document.getElementById('newUserName').value.trim();
+  const username = document.getElementById('newUserLogin').value.trim();
+  const password = document.getElementById('newUserPass').value;
+  const role = document.getElementById('newUserRole').value;
+  if(!fullName || !username || !password){ toast('Veuillez remplir tous les champs.'); return; }
+  const users = getUsers();
+  if(users.some(u=>u.username.toLowerCase()===username.toLowerCase())){ toast('Cet identifiant existe déjà.'); return; }
+  users.push({id:uid(), fullName, username, password, role, createdAt:new Date().toISOString()});
+  setUsers(users);
+  toast('Utilisateur créé.');
+  render();
+}
+function deleteUser(id){
+  if(!confirm('Supprimer cet utilisateur ?')) return;
+  setUsers(getUsers().filter(u=>u.id!==id));
+  toast('Utilisateur supprimé.');
+  render();
+}
+
+/* ---------------- PAGE-LEVEL EVENT WIRING ---------------- */
+function attachPageEvents(path, session){
+  if(path==='profil'){
+    wireFilePreview('profilePhotoInput', 'dropProfilePhoto');
+    const form = document.getElementById('profilForm');
+    if(form){
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        saveProfile(session);
+      });
+    }
+    return;
+  }
+  if(path==='dons'){
+    const tabs = document.getElementById('donsTabs');
+    if(tabs){
+      tabs.addEventListener('click', e=>{
+        const btn = e.target.closest('button[data-tab]');
+        if(!btn) return;
+        donsTab = btn.dataset.tab;
+        render();
+      });
+    }
+    const donForm = document.getElementById('donForm');
+    if(donForm){
+      donForm.addEventListener('submit', e=>{ e.preventDefault(); declareDonation(session); });
+    }
+    const campaignForm = document.getElementById('campaignForm');
+    if(campaignForm){
+      campaignForm.addEventListener('submit', e=>{
+        e.preventDefault();
+        const title = document.getElementById('campTitle').value.trim();
+        const targetAmount = Number(document.getElementById('campTarget').value);
+        const description = document.getElementById('campDesc').value.trim();
+        if(!title || !targetAmount){ toast('Veuillez remplir le titre et l\'objectif.'); return; }
+        const campaigns = getCampaigns();
+        campaigns.push({id:uid(), title, targetAmount, description, active:true, createdBy:session.fullName, createdAt:new Date().toISOString()});
+        setCampaigns(campaigns);
+        toast('Campagne créée.');
+        render();
+      });
+    }
+    return;
+  }
+  if(path==='boutique'){
+    const tabs = document.getElementById('boutiqueTabs');
+    if(tabs){
+      tabs.addEventListener('click', e=>{
+        const btn = e.target.closest('button[data-tab]');
+        if(!btn) return;
+        boutiqueTab = btn.dataset.tab;
+        render();
+      });
+    }
+    wireFilePreview('prodImage', 'dropProduct');
+    const productForm = document.getElementById('productForm');
+    if(productForm){
+      productForm.addEventListener('submit', async e=>{
+        e.preventDefault();
+        const name = document.getElementById('prodName').value.trim();
+        const price = Number(document.getElementById('prodPrice').value);
+        const description = document.getElementById('prodDesc').value.trim();
+        if(!name || !price){ toast('Veuillez remplir le nom et le prix.'); return; }
+        const imageInput = document.getElementById('prodImage');
+        let image = '';
+        if(imageInput.files[0]){
+          try{ image = await compressImageFile(imageInput.files[0], 800, 0.75); }catch(e){}
+        }
+        const products = getProducts();
+        products.push({id:uid(), name, price, description, image, createdBy:session.fullName, createdAt:new Date().toISOString()});
+        setProducts(products);
+        toast('Produit ajouté.');
+        render();
+      });
+    }
+    return;
+  }
+  if(path==='actualites'){
+    markSeen('news', session.username);
+    const form = document.getElementById('newsForm');
+    if(form){
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        const title = document.getElementById('newsTitle').value.trim();
+        const content = document.getElementById('newsContent').value.trim();
+        if(!title || !content){ toast('Veuillez remplir tous les champs.'); return; }
+        const posts = getNews();
+        posts.push({id:uid(), title, content, author:session.fullName, createdAt:new Date().toISOString()});
+        setNews(posts);
+        toast('Article publié.');
+        render();
+      });
+    }
+    return;
+  }
+  if(path==='forum'){
+    markSeen('forum', session.username);
+    const form = document.getElementById('forumForm');
+    if(form){
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        sendForumMessage();
+      });
+    }
+    const msgInput = document.getElementById('forumMsg');
+    if(msgInput){
+      msgInput.addEventListener('input', ()=>{
+        window._isTypingNow = true;
+        clearTimeout(window._typingTimeout);
+        pushPresence(session, {typing:true});
+        window._typingTimeout = setTimeout(()=>{
+          window._isTypingNow = false;
+          pushPresence(session, {typing:false});
+        }, 3000);
+      });
+    }
+    const thread = document.getElementById('forumThread');
+    if(thread) thread.scrollTop = thread.scrollHeight;
+    const voiceBtn = document.getElementById('voiceBtn');
+    if(voiceBtn){
+      voiceBtn.addEventListener('click', startVoiceRecording);
+    }
+    startForumPresence(session);
+    return;
+  }
+  if(path==='calendrier'){
+    const form = document.getElementById('eventForm');
+    if(form){
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        const title = document.getElementById('evTitle').value.trim();
+        const date = document.getElementById('evDate').value;
+        if(!title || !date){ toast('Veuillez remplir le titre et la date.'); return; }
+        const events = getEvents();
+        events.push({
+          id:uid(), title, date,
+          time: document.getElementById('evTime').value,
+          location: document.getElementById('evLocation').value.trim(),
+          description: document.getElementById('evDesc').value.trim(),
+          createdBy: session.fullName, createdAt: new Date().toISOString()
+        });
+        setEvents(events);
+        toast('Événement ajouté.');
+        render();
+      });
+    }
+    return;
+  }
+  if(path==='galerie'){
+    const btn = document.getElementById('galleryUploadBtn');
+    if(btn) btn.addEventListener('click', uploadGalleryPhoto);
+    wireFilePreview('galleryFile', 'dropGallery');
+    return;
+  }
+  if(path==='documents'){
+    const btn = document.getElementById('docUploadBtn');
+    if(btn) btn.addEventListener('click', uploadDocument);
+    wireFilePreview('docFile', 'dropDoc');
+    return;
+  }
+  if(path==='comptabilite'){
+    const tabs = document.getElementById('comptaTabs');
+    if(tabs){
+      tabs.addEventListener('click', e=>{
+        const btn = e.target.closest('button[data-tab]');
+        if(!btn) return;
+        comptaTab = btn.dataset.tab;
+        render();
+      });
+    }
+    const mouvForm = document.getElementById('mouvForm');
+    if(mouvForm){
+      mouvForm.addEventListener('submit', e=>{
+        e.preventDefault();
+        const type = document.getElementById('mvType').value;
+        saveAccountingEntry(type, 'mv');
+      });
+    }
+    const recetteForm = document.getElementById('recetteForm');
+    if(recetteForm){
+      recetteForm.addEventListener('submit', e=>{
+        e.preventDefault();
+        saveAccountingEntry('recette', 'rc');
+      });
+    }
+    return;
+  }
+  if(path==='membres'){
+    const {param} = currentRoute();
+    if(!param){
+      const search = document.getElementById('memberSearch');
+      if(search){
+        search.addEventListener('input', ()=>{
+          const q = search.value.toLowerCase();
+          const members = getMembers().filter(m =>
+            (m.nom||'').toLowerCase().includes(q) ||
+            (m.prenom||'').toLowerCase().includes(q) ||
+            (m.roleAssociation||'').toLowerCase().includes(q)
+          );
+          document.getElementById('memberGrid').innerHTML = members.length
+            ? members.slice().reverse().map(m=>memberCardHtml(m)).join('')
+            : `<div class="card" style="grid-column:1/-1;text-align:center;color:var(--ink-soft);padding:40px;">Aucun résultat.</div>`;
+        });
+      }
+    } else if(param==='nouveau' || param.startsWith('edit/')){
+      ['photo','cni','attestation'].forEach(attachFileDrop);
+      const form = document.getElementById('memberForm');
+      if(form){
+        form.addEventListener('submit', e=>{
+          e.preventDefault();
+          saveMemberForm(session);
+        });
+      }
+    } else {
+      const payForm = document.getElementById('paymentForm');
+      if(payForm){
+        payForm.addEventListener('submit', e=>{
+          e.preventDefault();
+          declarePayment(session);
+        });
+      }
+    }
+    return;
+  }
+  if(path==='options'){
+    const tabs = document.getElementById('optTabs');
+    if(tabs){
+      tabs.addEventListener('click', e=>{
+        const btn = e.target.closest('button[data-tab]');
+        if(!btn) return;
+        tabs.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.opt-panel').forEach(p=>p.classList.add('hidden'));
+        document.querySelector(`.opt-panel[data-panel="${btn.dataset.tab}"]`).classList.remove('hidden');
+      });
+      attachFileDrop('logo');
+    }
+  }
+}
+
+function saveMemberForm(session){
+  const spec = memberFieldsSpec();
+  const id = document.getElementById('f_id').value || uid();
+  const members = getMembers();
+  const idx = members.findIndex(m=>m.id===id);
+  const data = idx>=0 ? {...members[idx]} : {id, cotisationStatus:'en_attente', createdBy:session.fullName, createdAt:new Date().toISOString(), linkedUserId: session.role==='membre'?session.userId:null};
+
+  let valid = true;
+  Object.entries(spec).forEach(([key,f])=>{
+    const el = document.getElementById('f_'+key);
+    const val = el.value.trim();
+    if(f.required && !val) valid = false;
+    data[key] = val;
+  });
+  ['photo','cni','attestation'].forEach(key=>{
+    const el = document.getElementById('f_'+key);
+    if(el && el.dataset.value) data[key] = el.dataset.value;
+  });
+
+  if(!valid){ toast('Veuillez remplir les champs obligatoires (*).'); return; }
+
+  data.updatedBy = session.fullName;
+  data.updatedAt = new Date().toISOString();
+
+  if(idx>=0) members[idx] = data; else members.push(data);
+  setMembers(members);
+  toast(idx>=0 ? 'Membre modifié avec succès.' : 'Membre inscrit avec succès.');
+  nav('#/membres/'+id);
+}
+
+</script>
+</body>
+</html>
