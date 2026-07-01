@@ -338,6 +338,7 @@ const ICONS = {
   logout: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>`,
   sync: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11A8 8 0 0 0 5.7 6.3L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.7L21 15"/><path d="M21 20v-5h-5"/></svg>`,
   mic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5M8.5 21.5h7"/></svg>`,
+  phone: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.6 10.8a15.3 15.3 0 0 0 6.6 6.6l2.2-2.2a1.5 1.5 0 0 1 1.6-.3c1 .4 2.1.6 3.2.6a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5C10.5 21.5 2.5 13.5 2.5 3.5A1.5 1.5 0 0 1 4 2h3a1.5 1.5 0 0 1 1.5 1.5c0 1.1.2 2.2.6 3.2a1.5 1.5 0 0 1-.3 1.6L6.6 10.8Z"/></svg>`,
   stop: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`,
   menu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`,
   plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>`,
@@ -823,7 +824,7 @@ function renderLogin(){
         <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
         <div class="login-error" id="loginError"></div>
       </form>
-      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-05-D</span></div>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-05-F</span></div>
     </div>
   </div>`;
 }
@@ -1803,11 +1804,25 @@ function deleteNews(id){
 /* ================= MESSAGERIE / FORUM ================= */
 let forumPresenceInterval = null;
 
+let forumTab = 'discussion';
+
 function pageForum(session){
+  const unreadBefore = countUnreadForum(session);
+  return `
+    <div class="page-head"><h1>Messagerie</h1><p>Espace d'échange entre membres et équipes de projets.</p></div>
+    <div class="tabs" id="forumTabs">
+      <button data-tab="discussion" class="${forumTab==='discussion'?'active':''}">Discussion</button>
+      <button data-tab="contacts" class="${forumTab==='contacts'?'active':''}">Contacts</button>
+    </div>
+    <div id="forumTabContent">${forumTab==='discussion' ? renderForumDiscussion(session, unreadBefore) : renderForumContacts(session)}</div>
+  `;
+}
+
+function renderForumDiscussion(session, unreadBefore){
   const hidden = getHiddenMessages(session.username);
   const messages = getForum().filter(m => !hidden.includes(m.id));
   return `
-    <div class="page-head"><h1>Messagerie</h1><p>Espace d'échange entre membres et équipes de projets.</p></div>
+    ${unreadBefore > 0 ? `<div class="locked-banner" style="background:#E3EEE6;">${ICONS.bell} ${unreadBefore} nouveau${unreadBefore>1?'x':''} message${unreadBefore>1?'s':''} depuis votre dernière visite.</div>` : ''}
     <div id="presenceBar" class="card" style="padding:10px 16px;font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">Vérification des membres en ligne...</div>
     <div class="card" style="max-height:480px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;" id="forumThread">
       ${messages.length ? messages.map(m=>forumMessageHtml(m, session)).join('') : `<div style="text-align:center;color:var(--ink-soft);padding:30px;">Aucun message pour le moment. Lancez la discussion !</div>`}
@@ -1830,6 +1845,41 @@ function pageForum(session){
     </div>
   `;
 }
+
+function renderForumContacts(session){
+  const users = getUsers().filter(u=>u.username!==session.username);
+  return `
+    <div id="contactsList">
+      ${users.length ? users.map(u=>contactCardHtml(u, {})).join('') : `<div class="card" style="text-align:center;color:var(--ink-soft);padding:30px;">Aucun autre utilisateur pour le moment.</div>`}
+    </div>
+  `;
+}
+
+function contactCardHtml(u, presence){
+  const p = presence[u.username];
+  const online = p && (Date.now() - new Date(p.lastActive).getTime()) < 45000;
+  const avatar = u.profilePhoto
+    ? `<img src="${u.profilePhoto}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+    : `<div style="width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">${initials(u.fullName||u.username)}</div>`;
+  const phoneDigits = (u.phone||'').replace(/[^\d+]/g,'');
+  return `
+  <div class="member-card" style="cursor:default;margin-bottom:10px;" id="contact_${u.username}">
+    <div style="position:relative;flex-shrink:0;">
+      ${avatar}
+      <span style="position:absolute;bottom:0;right:0;width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:${online?'var(--primary)':'#C7CBD1'};" id="dot_${u.username}"></span>
+    </div>
+    <div class="member-info">
+      <div class="name">${escapeHtml(u.fullName||u.username)}</div>
+      <div class="role">${roleLabel(u.role)} · <span id="status_${u.username}">${online?'En ligne':'Hors ligne'}</span></div>
+      ${u.phone ? `
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <a href="tel:${phoneDigits}" class="btn btn-primary btn-sm">${ICONS.phone} Appeler</a>
+          <a href="https://wa.me/${phoneDigits.replace('+','')}" target="_blank" class="btn btn-edit btn-sm" style="background:#25D366;">WhatsApp</a>
+        </div>` : `<div style="font-size:12px;color:var(--ink-soft);margin-top:4px;">Numéro non renseigné</div>`}
+    </div>
+  </div>`;
+}
+
 function forumMessageHtml(m, session){
   const isMe = m.author===session.fullName;
   const canDeleteEveryone = isMe || isStaff(session);
@@ -1884,19 +1934,37 @@ let voiceStream = null;
 let voiceStartTime = null;
 let voiceTimerInterval = null;
 
+function pickVoiceMimeType(){
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/mp4',
+    'audio/webm',
+    'audio/ogg;codecs=opus'
+  ];
+  if(window.MediaRecorder && MediaRecorder.isTypeSupported){
+    for(const type of candidates){
+      if(MediaRecorder.isTypeSupported(type)) return type;
+    }
+  }
+  return ''; // laisse le navigateur choisir par défaut si rien n'est reconnu
+}
+
 async function startVoiceRecording(){
   if(!navigator.mediaDevices || !window.MediaRecorder){
     toast("Votre navigateur ne permet pas l'enregistrement vocal.");
     return;
   }
   try{
-    voiceStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    voiceStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation:true, noiseSuppression:true, channelCount:1 }
+    });
   }catch(e){
-    toast("Impossible d'accéder au microphone. Vérifiez les autorisations de votre navigateur.");
+    toast("Impossible d'accéder au microphone. Sur mobile, l'application doit être ouverte via un lien https:// (pas un fichier local) pour autoriser le micro.");
     return;
   }
   voiceChunks = [];
-  voiceRecorder = new MediaRecorder(voiceStream);
+  const mimeType = pickVoiceMimeType();
+  voiceRecorder = mimeType ? new MediaRecorder(voiceStream, {mimeType}) : new MediaRecorder(voiceStream);
   voiceRecorder.ondataavailable = e => { if(e.data.size>0) voiceChunks.push(e.data); };
   voiceRecorder.start();
   voiceStartTime = Date.now();
@@ -1994,16 +2062,25 @@ function stopForumPresence(){
 function renderPresenceBar(presence, session){
   const bar = document.getElementById('presenceBar');
   const typingEl = document.getElementById('typingIndicator');
-  if(!bar) return;
   const now = Date.now();
   const online = Object.values(presence).filter(p => p.fullName!==session.fullName && (now - new Date(p.lastActive).getTime()) < 45000);
   const typingUsers = Object.values(presence).filter(p => p.fullName!==session.fullName && p.typing && (now - new Date(p.typingAt||0).getTime()) < 6000);
-  bar.innerHTML = online.length
-    ? `<span style="color:var(--primary);font-weight:600;">● En ligne :</span> ${online.map(o=>escapeHtml(o.fullName)).join(', ')}`
-    : `Vous êtes seul(e) ici pour le moment.`;
+  if(bar){
+    bar.innerHTML = online.length
+      ? `<span style="color:var(--primary);font-weight:600;">● En ligne :</span> ${online.map(o=>escapeHtml(o.fullName)).join(', ')}`
+      : `Vous êtes seul(e) ici pour le moment.`;
+  }
   if(typingEl){
     typingEl.textContent = typingUsers.length ? `${typingUsers.map(t=>t.fullName).join(', ')} ${typingUsers.length>1?'sont':'est'} en train d'écrire...` : '';
   }
+  // Met à jour les points de statut de l'onglet Contacts s'il est affiché, sans tout re-rendre
+  Object.keys(presence).forEach(username=>{
+    const isOnline = (now - new Date(presence[username].lastActive).getTime()) < 45000;
+    const dot = document.getElementById('dot_'+username);
+    const statusText = document.getElementById('status_'+username);
+    if(dot) dot.style.background = isOnline ? 'var(--primary)' : '#C7CBD1';
+    if(statusText) statusText.textContent = isOnline ? 'En ligne' : 'Hors ligne';
+  });
 }
 
 /* ================= CALENDRIER ================= */
@@ -2770,7 +2847,7 @@ function renderOptionsPanel(){
   const users = getUsers();
   const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
   return `
-    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-05-D)</span></p></div>
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-05-F)</span></p></div>
     ${lockedWarn}
     <div class="tabs" id="optTabs">
       <button data-tab="identite" class="active">Identité de l'association</button>
@@ -3003,6 +3080,15 @@ function attachPageEvents(path, session){
   }
   if(path==='forum'){
     markSeen('forum', session.username);
+    const tabs = document.getElementById('forumTabs');
+    if(tabs){
+      tabs.addEventListener('click', e=>{
+        const btn = e.target.closest('button[data-tab]');
+        if(!btn) return;
+        forumTab = btn.dataset.tab;
+        render();
+      });
+    }
     const form = document.getElementById('forumForm');
     if(form){
       form.addEventListener('submit', e=>{
