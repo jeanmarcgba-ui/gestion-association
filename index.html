@@ -205,6 +205,23 @@ main{flex:1;min-width:0;padding:26px 30px 60px;overflow-y:auto;}
   background:rgba(255,255,255,0.06);
 }
 
+.announcement-banner{
+  background:#7A1F2B;
+  color:#fff;
+  border:3px solid var(--navy);
+  border-radius:var(--radius);
+  padding:20px 24px;
+  margin-bottom:18px;
+  font-size:19px;
+  font-weight:700;
+  line-height:1.4;
+  cursor:pointer;
+  box-shadow:0 6px 18px rgba(122,31,43,0.35);
+  transition:transform .12s;
+}
+.announcement-banner:hover{transform:translateY(-1px);}
+.announcement-banner:active{transform:scale(0.99);}
+
 .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin-bottom:18px;}
 .grid{display:grid;gap:16px;}
 .grid-2{grid-template-columns:1fr 1fr;}
@@ -326,7 +343,8 @@ const LS = {
   campaigns: 'aa_campaigns',
   donations: 'aa_donations',
   products: 'aa_products',
-  orders: 'aa_orders'
+  orders: 'aa_orders',
+  announcements: 'aa_announcements'
 };
 
 const ICONS = {
@@ -435,6 +453,16 @@ function getProducts(){ return loadJSON(LS.products, []); }
 function setProducts(p){ saveJSON(LS.products, p); }
 function getOrders(){ return loadJSON(LS.orders, []); }
 function setOrders(o){ saveJSON(LS.orders, o); }
+function getAnnouncements(){ return loadJSON(LS.announcements, []); }
+function setAnnouncements(a){ saveJSON(LS.announcements, a); }
+
+/* ---- Annonces vues/masquées (local à l'appareil/utilisateur) ---- */
+function dismissedAnnouncementsKey(username){ return 'aa_dismissed_announcements_' + username; }
+function getDismissedAnnouncements(username){ return loadJSON(dismissedAnnouncementsKey(username), []); }
+function dismissAnnouncement(id, username){
+  const list = getDismissedAnnouncements(username);
+  if(!list.includes(id)){ list.push(id); saveJSON(dismissedAnnouncementsKey(username), list, true); }
+}
 
 /* ---- Compteurs non-lus (locaux à l'appareil/utilisateur) ---- */
 function lastSeenKey(section, username){ return 'aa_lastseen_' + section + '_' + username; }
@@ -523,7 +551,7 @@ const SUPABASE_REST = SUPABASE_URL + '/rest/v1';
 const SUPABASE_TABLE = 'assoc_data';
 
 // Clés synchronisées entre appareils (la session de connexion reste locale à chaque appareil)
-const SYNC_KEYS = [LS.settings, LS.users, LS.members, LS.accounting, LS.news, LS.forum, LS.events, LS.gallery, LS.documents_store, LS.payments, LS.campaigns, LS.donations, LS.products, LS.orders];
+const SYNC_KEYS = [LS.settings, LS.users, LS.members, LS.accounting, LS.news, LS.forum, LS.events, LS.gallery, LS.documents_store, LS.payments, LS.campaigns, LS.donations, LS.products, LS.orders, LS.announcements];
 
 function tsKey(key){ return key + '__ts'; }
 function getLocalTimestamp(key){
@@ -867,7 +895,7 @@ function renderLogin(){
         <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
         <div class="login-error" id="loginError"></div>
       </form>
-      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-06-A</span></div>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-06-C</span></div>
     </div>
   </div>`;
 }
@@ -999,7 +1027,15 @@ function pageAccueil(session){
   const cotisationsAJour = members.filter(m=>m.cotisationStatus==='a_jour').length;
   const lockWarning = isExpiryUnset() && session.role==='createur' ? `
     <div class="locked-banner">${ICONS.bell} Aucune date d'utilisation n'est définie : tant que vous ne la renseignez pas dans Options, les informations saisies dans l'application ne seront pas conservées comme valides.</div>` : '';
+  const dismissed = getDismissedAnnouncements(session.username);
+  const activeAnnouncements = getAnnouncements().filter(a=>!dismissed.includes(a.id));
+  const announcementsHtml = activeAnnouncements.map(a=>`
+    <div class="announcement-banner" onclick="handleDismissAnnouncement('${a.id}')">
+      ${ICONS.bell} ${escapeHtml(a.message)}
+      <div style="font-size:12px;font-weight:400;opacity:.85;margin-top:6px;">Cliquez pour masquer cette notification</div>
+    </div>`).join('');
   return `
+    ${announcementsHtml}
     <div class="welcome-banner" style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
       <div><h1>Bonjour, ${escapeHtml(session.fullName.split(' ')[0])} 👋</h1><p>Bienvenue sur l'espace de gestion de ${escapeHtml(s.assocName||'votre association')}.</p></div>
       ${s.assocLogo ? `<img src="${s.assocLogo}" style="width:64px;height:64px;border-radius:14px;object-fit:cover;flex-shrink:0;box-shadow:0 0 0 3px rgba(255,255,255,0.25);position:relative;z-index:1;">` : ''}
@@ -1032,6 +1068,11 @@ function pageAccueil(session){
 }
 
 /* ================= MEMBRES ================= */
+function handleDismissAnnouncement(id){
+  dismissAnnouncement(id, getSession().username);
+  render();
+}
+
 function memberCardHtml(m){
   const photo = m.photo ? `<img class="member-photo" src="${m.photo}">` : `<div class="member-photo placeholder">${initials((m.prenom||'')+' '+(m.nom||''))}</div>`;
   const statusBadge = m.cotisationStatus==='a_jour' ? `<span class="badge badge-ok">Cotisation à jour</span>` : `<span class="badge badge-warn">Cotisation en attente</span>`;
@@ -3047,13 +3088,15 @@ function renderOptionsPanel(){
   const users = getUsers();
   const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
   return `
-    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-06-A)</span></p></div>
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-06-C)</span></p></div>
     ${lockedWarn}
     <div class="tabs" id="optTabs">
       <button data-tab="identite" class="active">Identité de l'association</button>
       <button data-tab="validite">Période d'utilisation</button>
       <button data-tab="montants">Montants cotisation/adhésion</button>
       <button data-tab="acces">Droits d'accès</button>
+      <button data-tab="sauvegarde">Sauvegarde</button>
+      <button data-tab="notifications">Notifications</button>
     </div>
 
     <div class="opt-panel" data-panel="identite">
@@ -3131,6 +3174,43 @@ function renderOptionsPanel(){
         </table>
       </div>
     </div>
+
+    <div class="opt-panel hidden" data-panel="sauvegarde">
+      <div class="card" style="max-width:560px;">
+        <h3 style="margin-top:0;">Sauvegarder toutes les données</h3>
+        <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px;">Télécharge un fichier contenant l'intégralité des données de l'application (membres, comptabilité, messages, dons, produits, documents, etc.) — à conserver en lieu sûr en cas de problème.</p>
+        <button class="btn btn-accent" onclick="exportFullBackup()">${ICONS.pdf} Télécharger la sauvegarde</button>
+      </div>
+      <div class="card" style="max-width:560px;">
+        <h3 style="margin-top:0;">Restaurer une sauvegarde</h3>
+        <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px;"><strong>Attention :</strong> restaurer une sauvegarde remplace <strong>toutes</strong> les données actuelles de l'application (sur tous les appareils connectés) par celles du fichier choisi. Cette action est irréversible.</p>
+        <label class="file-drop" id="dropBackup">
+          <span class="file-drop-content">Cliquer pour choisir un fichier de sauvegarde (.json)</span>
+          <input type="file" id="backupFileInput" accept="application/json,.json">
+        </label>
+        <div style="height:12px;"></div>
+        <button class="btn btn-danger" id="restoreBackupBtn">${ICONS.trash} Restaurer cette sauvegarde</button>
+      </div>
+    </div>
+
+    <div class="opt-panel hidden" data-panel="notifications">
+      <div class="card" style="max-width:560px;">
+        <h3 style="margin-top:0;">Envoyer une notification</h3>
+        <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px;">Le message apparaîtra en évidence sur la page d'accueil de tous les utilisateurs, jusqu'à ce que chacun clique dessus pour le masquer.</p>
+        <form id="announcementForm">
+          <div class="field"><label>Message</label><input type="text" id="announcementMsg" required placeholder="Ex : Une mise à jour de l'application sera faite dimanche soir."></div>
+          <button type="submit" class="btn btn-primary">${ICONS.plus} Publier la notification</button>
+        </form>
+      </div>
+      <div class="card" style="max-width:560px;">
+        <h3 style="margin-top:0;">Notifications publiées</h3>
+        ${getAnnouncements().slice().reverse().map(a=>`
+          <div class="summary-row" style="align-items:center;">
+            <span class="k">${escapeHtml(a.message)}<br><span style="font-size:11px;color:var(--ink-soft);">${fmtDateTime(a.createdAt)}</span></span>
+            <button class="btn btn-danger btn-sm" onclick="deleteAnnouncement('${a.id}')">${ICONS.trash} Retirer</button>
+          </div>`).join('') || `<div style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune notification publiée.</div>`}
+      </div>
+    </div>
   `;
 }
 function roleLabel(r){
@@ -3185,6 +3265,89 @@ function deleteUser(id){
   if(!confirm('Supprimer cet utilisateur ?')) return;
   setUsers(getUsers().filter(u=>u.id!==id));
   toast('Utilisateur supprimé.');
+  render();
+}
+
+/* ================= SAUVEGARDE & RESTAURATION (créateur uniquement) ================= */
+// La liste des clés sauvegardées reprend toutes les données synchronisées de l'application.
+function exportFullBackup(){
+  const session = getSession();
+  if(!session || session.role !== 'createur'){
+    toast('Seul le créateur de l\'application peut effectuer une sauvegarde.');
+    return;
+  }
+  const backup = {
+    _backupInfo: {
+      assocName: (getSettings()||{}).assocName || 'Association',
+      exportedBy: session.fullName,
+      exportedAt: new Date().toISOString(),
+      appVersion: '2026-07-06-A'
+    }
+  };
+  SYNC_KEYS.forEach(key=>{
+    backup[key] = loadJSON(key, null);
+  });
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `sauvegarde_association_${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  toast('Sauvegarde téléchargée.');
+}
+
+function restoreFullBackup(){
+  const session = getSession();
+  if(!session || session.role !== 'createur'){
+    toast('Seul le créateur de l\'application peut restaurer une sauvegarde.');
+    return;
+  }
+  const fileInput = document.getElementById('backupFileInput');
+  const file = fileInput.files[0];
+  if(!file){ toast('Veuillez choisir un fichier de sauvegarde.'); return; }
+
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    let backup;
+    try{
+      backup = JSON.parse(reader.result);
+    }catch(e){
+      toast('Fichier invalide : ce n\'est pas une sauvegarde reconnue.');
+      return;
+    }
+    const info = backup._backupInfo;
+    const infoText = info
+      ? `Sauvegarde de "${info.assocName}", exportée par ${info.exportedBy} le ${fmtDateTime(info.exportedAt)}.`
+      : "Ce fichier ne contient pas d'informations de sauvegarde reconnues.";
+    const ok = confirm(
+      `${infoText}\n\nRestaurer va REMPLACER TOUTES les données actuelles de l'application (sur cet appareil et, après synchronisation, sur tous les autres appareils connectés).\n\nCette action est irréversible. Continuer ?`
+    );
+    if(!ok) return;
+
+    let restoredCount = 0;
+    SYNC_KEYS.forEach(key=>{
+      if(backup[key] !== undefined && backup[key] !== null){
+        saveJSON(key, backup[key]); // déclenche aussi l'envoi vers Supabase pour synchroniser les autres appareils
+        restoredCount++;
+      }
+    });
+
+    toast(`Sauvegarde restaurée (${restoredCount} éléments). Synchronisation en cours...`);
+    updateAppIcons();
+    render();
+  };
+  reader.onerror = ()=>{ toast('Erreur lors de la lecture du fichier.'); };
+  reader.readAsText(file);
+}
+
+function deleteAnnouncement(id){
+  if(!confirm('Retirer cette notification pour tout le monde ?')) return;
+  setAnnouncements(getAnnouncements().filter(a=>a.id!==id));
+  toast('Notification retirée.');
   render();
 }
 
@@ -3440,6 +3603,22 @@ function attachPageEvents(path, session){
         document.querySelector(`.opt-panel[data-panel="${btn.dataset.tab}"]`).classList.remove('hidden');
       });
       wireFilePreview('optLogo', 'drop_logo');
+      wireFilePreview('backupFileInput', 'dropBackup');
+      const restoreBtn = document.getElementById('restoreBackupBtn');
+      if(restoreBtn) restoreBtn.addEventListener('click', restoreFullBackup);
+      const announcementForm = document.getElementById('announcementForm');
+      if(announcementForm){
+        announcementForm.addEventListener('submit', e=>{
+          e.preventDefault();
+          const msg = document.getElementById('announcementMsg').value.trim();
+          if(!msg) return;
+          const announcements = getAnnouncements();
+          announcements.push({id:uid(), message:msg, createdBy:session.fullName, createdAt:new Date().toISOString()});
+          setAnnouncements(announcements);
+          toast('Notification publiée.');
+          render();
+        });
+      }
     }
   }
 }
