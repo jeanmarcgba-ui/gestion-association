@@ -259,10 +259,21 @@ main{flex:1;min-width:0;padding:26px 30px 60px;overflow-y:auto;}
 
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px;}
 .search-input{flex:1;min-width:180px;}
-table{width:100%;border-collapse:collapse;font-size:14px;}
-table th{text-align:left;font-size:11.5px;text-transform:uppercase;color:var(--ink-soft);padding:8px 10px;border-bottom:2px solid var(--border);}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px;}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:600px;}
+table th{text-align:left;font-size:11.5px;text-transform:uppercase;color:var(--ink-soft);padding:8px 10px;border-bottom:2px solid var(--border);white-space:nowrap;}
 table td{padding:10px;border-bottom:1px solid var(--border);}
 table tr:hover td{background:var(--bg);}
+@media (max-width:700px){
+  .table-scroll{position:relative;}
+  .table-scroll::after{
+    content:"→ Faites glisser pour voir plus";
+    display:block;text-align:center;font-size:11px;color:var(--ink-soft);padding:6px 0 2px;
+  }
+  table{font-size:12.5px;min-width:560px;}
+  table th{padding:7px 8px;font-size:10px;}
+  table td{padding:8px;}
+}
 
 .toast{
   position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
@@ -451,6 +462,11 @@ function setGallery(g){ saveJSON(LS.gallery, g); }
 function getDocumentsStore(){ return loadJSON(LS.documents_store, []); }
 function setDocumentsStore(d){ saveJSON(LS.documents_store, d); }
 function getPayments(){ return loadJSON(LS.payments, []); }
+// Le statut de cotisation est calculé automatiquement à partir des paiements réellement
+// confirmés par la trésorerie — jamais modifié manuellement, pour rester toujours exact.
+function isMemberCotisationAJour(memberId){
+  return getPayments().some(p => p.memberId===memberId && p.type==='cotisation' && p.status==='confirme');
+}
 function setPayments(p){ saveJSON(LS.payments, p); }
 function getCampaigns(){ return loadJSON(LS.campaigns, []); }
 function setCampaigns(c){ saveJSON(LS.campaigns, c); }
@@ -902,7 +918,7 @@ function renderLogin(){
         <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
         <div class="login-error" id="loginError"></div>
       </form>
-      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-07-B</span></div>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-07-D</span></div>
     </div>
   </div>`;
 }
@@ -1038,7 +1054,7 @@ function pagePlaceholder(title, icon, desc){
 function pageAccueil(session){
   const s = getSettings()||{};
   const members = getMembers();
-  const cotisationsAJour = members.filter(m=>m.cotisationStatus==='a_jour').length;
+  const cotisationsAJour = members.filter(m=>isMemberCotisationAJour(m.id)).length;
   const lockWarning = isExpiryUnset() && session.role==='createur' ? `
     <div class="locked-banner">${ICONS.bell} Aucune date d'utilisation n'est définie : tant que vous ne la renseignez pas dans Options, les informations saisies dans l'application ne seront pas conservées comme valides.</div>` : '';
   const dismissed = getDismissedAnnouncements(session.username);
@@ -1135,7 +1151,8 @@ function handleDismissAnnouncement(id){
 
 function memberCardHtml(m){
   const photo = m.photo ? `<img class="member-photo" src="${m.photo}">` : `<div class="member-photo placeholder">${initials((m.prenom||'')+' '+(m.nom||''))}</div>`;
-  const statusBadge = m.cotisationStatus==='a_jour' ? `<span class="badge badge-ok">Cotisation à jour</span>` : `<span class="badge badge-warn">Cotisation en attente</span>`;
+  const isAJour = isMemberCotisationAJour(m.id);
+  const statusBadge = isAJour ? `<span class="badge badge-ok">Cotisation à jour</span>` : `<span class="badge badge-warn">Cotisation en attente</span>`;
   return `
   <div class="member-card" onclick="nav('#/membres/${m.id}')">
     ${photo}
@@ -1300,6 +1317,7 @@ function attachFileDrop(key){
 function pageMembreDetail(session, id){
   const m = getMembers().find(x=>x.id===id);
   if(!m) return `<div class="card">Membre introuvable. <a href="#/membres">Retour à l'annuaire</a></div>`;
+  const isAJour = isMemberCotisationAJour(m.id);
   const settingsForPay = getSettings()||{};
   const spec = memberFieldsSpec();
   const isSelf = session.role==='membre' && m.linkedUserId===session.userId;
@@ -1322,7 +1340,7 @@ function pageMembreDetail(session, id){
             <div>
               <div style="font-weight:700;font-size:17px;">${escapeHtml(m.prenom)} ${escapeHtml(m.nom)}</div>
               <div style="color:var(--ink-soft);font-size:13.5px;">${escapeHtml(m.roleAssociation||'Membre')}</div>
-              <span class="badge ${m.cotisationStatus==='a_jour'?'badge-ok':'badge-warn'}">${m.cotisationStatus==='a_jour'?'Cotisation à jour':'Cotisation en attente'}</span>
+              <span class="badge ${isAJour?'badge-ok':'badge-warn'}">${isAJour?'Cotisation à jour':'Cotisation en attente'}</span>
             </div>
           </div>
           <div class="summary-block">
@@ -1348,12 +1366,11 @@ function pageMembreDetail(session, id){
           <h3 style="margin-top:0;">Suivi de cotisation</h3>
           <div class="field">
             <label>État de la cotisation</label>
-            <select id="cotisationStatus" ${canEdit?'':'disabled'}>
-              <option value="en_attente" ${m.cotisationStatus!=='a_jour'?'selected':''}>En attente</option>
-              <option value="a_jour" ${m.cotisationStatus==='a_jour'?'selected':''}>À jour</option>
-            </select>
+            <div style="padding:12px 14px;border-radius:10px;background:var(--bg);">
+              <span class="badge ${isAJour?'badge-ok':'badge-warn'}" style="font-size:12.5px;">${isAJour?'À JOUR':'EN ATTENTE'}</span>
+            </div>
+            <small class="hint">Calculé automatiquement dès qu'un paiement de cotisation est confirmé par la trésorerie — non modifiable manuellement.</small>
           </div>
-          ${canEdit ? `<button class="btn btn-primary btn-block" onclick="updateCotisationStatus('${m.id}')">Mettre à jour</button>` : ''}
         </div>
         <div class="card">
           <h3 style="margin-top:0;">Déclarer un paiement</h3>
@@ -1630,10 +1647,12 @@ function registerPayment(session){
 }
 
 function exportPaymentsHistoryPDF(){
-  const processed = getPayments().filter(p=>p.status!=='en_attente').slice().reverse();
+  const processed = filterByPeriod(getPayments().filter(p=>p.status!=='en_attente').slice().reverse(), 'date', 'paiements');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'pt', format:'a4'});
-  let {y, margin, pageWidth} = pdfDrawHeader(doc, 'Historique des paiements traités');
+  const f = comptaPeriodFilters.paiements;
+  const periodLabel = (f.year||f.month) ? ` — ${f.month?MONTH_NAMES[f.month-1]+' ':''}${f.year||''}` : '';
+  let {y, margin, pageWidth} = pdfDrawHeader(doc, 'Historique des paiements traités'+periodLabel);
 
   const colDate = margin, colMember = margin+65, colType = margin+185, colStatus = margin+250, colBy = margin+320, colAmount = pageWidth-margin;
 
@@ -1678,17 +1697,7 @@ function exportPaymentsHistoryPDF(){
   doc.save('historique_paiements.pdf');
 }
 
-function updateCotisationStatus(id){
-  const members = getMembers();
-  const idx = members.findIndex(m=>m.id===id);
-  if(idx<0) return;
-  members[idx].cotisationStatus = document.getElementById('cotisationStatus').value;
-  members[idx].updatedBy = getSession().fullName;
-  members[idx].updatedAt = new Date().toISOString();
-  setMembers(members);
-  toast('Statut de cotisation mis à jour.');
-  render();
-}
+
 
 function deleteMember(id){
   if(!confirm('Supprimer définitivement ce membre ?')) return;
@@ -1733,7 +1742,7 @@ function exportMemberPDF(id){
   doc.text(`${m.civilite||''} ${m.prenom||''} ${m.nom||''}`.trim(), margin + (m.photo?100:0), y+18);
   doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.setTextColor(90,100,95);
   doc.text(m.roleAssociation || 'Membre', margin + (m.photo?100:0), y+36);
-  doc.text('Statut cotisation : ' + (m.cotisationStatus==='a_jour' ? 'À jour' : 'En attente'), margin + (m.photo?100:0), y+52);
+  doc.text('Statut cotisation : ' + (isMemberCotisationAJour(m.id) ? 'À jour' : 'En attente'), margin + (m.photo?100:0), y+52);
 
   y += 105;
   const spec = memberFieldsSpec();
@@ -1825,10 +1834,61 @@ function exportAnnuairePDF(){
 /* ================= COMPTABILITÉ (Phase 2) ================= */
 let comptaTab = 'apercu';
 
+/* ---- Filtre par mois/année pour les historiques de comptabilité ---- */
+let comptaPeriodFilters = { paiements: {year:'', month:''}, mouvements: {year:'', month:''}, recettes: {year:'', month:''} };
+const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+function filterByPeriod(list, dateField, section){
+  const f = comptaPeriodFilters[section];
+  if(!f.year && !f.month) return list;
+  return list.filter(item=>{
+    if(!item[dateField]) return true;
+    const d = new Date(item[dateField]);
+    if(isNaN(d)) return true;
+    if(f.year && d.getFullYear() !== Number(f.year)) return false;
+    if(f.month && (d.getMonth()+1) !== Number(f.month)) return false;
+    return true;
+  });
+}
+
+function periodFilterHtml(section, allItems, dateField){
+  const f = comptaPeriodFilters[section];
+  const years = [...new Set(allItems.map(i=>{
+    const d = new Date(i[dateField]);
+    return isNaN(d) ? null : d.getFullYear();
+  }).filter(Boolean))].sort((a,b)=>b-a);
+  return `
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
+    <div class="field" style="margin:0;min-width:130px;">
+      <label>Année</label>
+      <select onchange="setComptaPeriodFilter('${section}','year',this.value)">
+        <option value="">Toutes</option>
+        ${years.map(y=>`<option value="${y}" ${String(f.year)===String(y)?'selected':''}>${y}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field" style="margin:0;min-width:150px;">
+      <label>Mois</label>
+      <select onchange="setComptaPeriodFilter('${section}','month',this.value)">
+        <option value="">Tous</option>
+        ${MONTH_NAMES.map((mo,i)=>`<option value="${i+1}" ${String(f.month)===String(i+1)?'selected':''}>${mo}</option>`).join('')}
+      </select>
+    </div>
+    ${(f.year||f.month) ? `<button class="btn btn-ghost" onclick="clearComptaPeriodFilter('${section}')">Réinitialiser</button>` : ''}
+  </div>`;
+}
+function setComptaPeriodFilter(section, field, value){
+  comptaPeriodFilters[section][field] = value;
+  render();
+}
+function clearComptaPeriodFilter(section){
+  comptaPeriodFilters[section] = {year:'', month:''};
+  render();
+}
+
 function computeAccountingTotals(){
   const members = getMembers();
   const entries = getAccounting();
-  const cotisationsAJour = members.filter(m=>m.cotisationStatus==='a_jour').length;
+  const cotisationsAJour = members.filter(m=>isMemberCotisationAJour(m.id)).length;
 
   // Catégorise chaque recette par sa source (le champ "source" est ajouté aux nouvelles
   // entrées ; pour les anciennes entrées sans ce champ, on déduit la catégorie depuis la description).
@@ -1923,7 +1983,8 @@ function renderComptaTab(tab, session){
     const members = getMembers();
     const payments = getPayments().slice().reverse();
     const pending = payments.filter(p=>p.status==='en_attente');
-    const others = payments.filter(p=>p.status!=='en_attente');
+    const allProcessed = payments.filter(p=>p.status!=='en_attente');
+    const others = filterByPeriod(allProcessed, 'date', 'paiements');
     return `
     <div class="card">
       <h3 style="margin-top:0;">Enregistrer un paiement</h3>
@@ -1976,7 +2037,8 @@ function renderComptaTab(tab, session){
         <h3 style="margin:0;">Historique des paiements traités</h3>
         <button class="btn btn-accent" onclick="exportPaymentsHistoryPDF()">${ICONS.pdf} Télécharger l'historique (PDF)</button>
       </div>
-      <table style="margin-top:14px;">
+      ${periodFilterHtml('paiements', allProcessed, 'date')}
+      <div class="table-scroll"><table style="margin-top:14px;">
         <thead><tr><th>Date</th><th>Membre</th><th>Type</th><th>Montant</th><th>Statut</th><th>Enregistré par</th><th>Heure</th><th></th></tr></thead>
         <tbody>
           ${others.length ? others.map(p=>`
@@ -1991,11 +2053,12 @@ function renderComptaTab(tab, session){
               <td style="display:flex;gap:6px;"><button class="btn btn-edit btn-sm" onclick="editPayment('${p.id}')">Modifier</button><button class="btn btn-danger btn-sm" onclick="deletePayment('${p.id}')">${ICONS.trash} Supprimer</button></td>
             </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun historique.</td></tr>`}
         </tbody>
-      </table>
+      </table></div>
     </div>`;
   }
   if(tab==='mouvements'){
-    const entries = getAccounting().filter(e=>e.type==='depense'||e.type==='achat').slice().reverse();
+    const allEntries = getAccounting().filter(e=>e.type==='depense'||e.type==='achat').slice().reverse();
+    const entries = filterByPeriod(allEntries, 'date', 'mouvements');
     return `
     <div class="card">
       <h3 style="margin-top:0;">Enregistrer une dépense ou un achat</h3>
@@ -2019,7 +2082,8 @@ function renderComptaTab(tab, session){
         <h3 style="margin:0;">Historique des dépenses & achats</h3>
         <button class="btn btn-accent" onclick="exportMouvementsPDF()">${ICONS.pdf} Télécharger (PDF)</button>
       </div>
-      <table style="margin-top:14px;">
+      ${periodFilterHtml('mouvements', allEntries, 'date')}
+      <div class="table-scroll"><table style="margin-top:14px;">
         <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Montant</th><th>Enregistré par</th><th>Heure</th><th></th></tr></thead>
         <tbody>
           ${entries.length ? entries.map(e=>`
@@ -2033,11 +2097,12 @@ function renderComptaTab(tab, session){
               <td style="display:flex;gap:6px;"><button class="btn btn-edit btn-sm" onclick="editAccountingEntry('${e.id}')">${ICONS.plus} Modifier</button><button class="btn btn-danger btn-sm" onclick="deleteAccountingEntry('${e.id}')">${ICONS.trash} Supprimer</button></td>
             </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune dépense ou achat enregistré.</td></tr>`}
         </tbody>
-      </table>
+      </table></div>
     </div>`;
   }
   if(tab==='recettes'){
-    const entries = getAccounting().filter(e=>e.type==='recette').slice().reverse();
+    const allEntries = getAccounting().filter(e=>e.type==='recette').slice().reverse();
+    const entries = filterByPeriod(allEntries, 'date', 'recettes');
     return `
     <div class="card">
       <h3 style="margin-top:0;">Enregistrer une recette (don, vente, autre entrée)</h3>
@@ -2055,7 +2120,8 @@ function renderComptaTab(tab, session){
         <h3 style="margin:0;">Historique des autres recettes</h3>
         <button class="btn btn-accent" onclick="exportRecettesPDF()">${ICONS.pdf} Télécharger (PDF)</button>
       </div>
-      <table style="margin-top:14px;">
+      ${periodFilterHtml('recettes', allEntries, 'date')}
+      <div class="table-scroll"><table style="margin-top:14px;">
         <thead><tr><th>Date</th><th>Description</th><th>Montant</th><th>Enregistré par</th><th>Heure</th><th></th></tr></thead>
         <tbody>
           ${entries.length ? entries.map(e=>`
@@ -2068,7 +2134,7 @@ function renderComptaTab(tab, session){
               <td style="display:flex;gap:6px;"><button class="btn btn-edit btn-sm" onclick="editAccountingEntry('${e.id}')">${ICONS.plus} Modifier</button><button class="btn btn-danger btn-sm" onclick="deleteAccountingEntry('${e.id}')">${ICONS.trash} Supprimer</button></td>
             </tr>`).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune recette manuelle enregistrée.</td></tr>`}
         </tbody>
-      </table>
+      </table></div>
     </div>`;
   }
   if(tab==='numeros'){
@@ -2266,13 +2332,17 @@ function exportEntriesPDF(entries, title, filename, showType){
 }
 
 function exportMouvementsPDF(){
-  const entries = getAccounting().filter(e=>e.type==='depense'||e.type==='achat').slice().reverse();
-  exportEntriesPDF(entries, 'Historique des dépenses & achats', 'depenses_achats.pdf', true);
+  const entries = filterByPeriod(getAccounting().filter(e=>e.type==='depense'||e.type==='achat').slice().reverse(), 'date', 'mouvements');
+  const f = comptaPeriodFilters.mouvements;
+  const periodLabel = (f.year||f.month) ? ` — ${f.month?MONTH_NAMES[f.month-1]+' ':''}${f.year||''}` : '';
+  exportEntriesPDF(entries, 'Historique des dépenses & achats'+periodLabel, 'depenses_achats.pdf', true);
 }
 
 function exportRecettesPDF(){
-  const entries = getAccounting().filter(e=>e.type==='recette').slice().reverse();
-  exportEntriesPDF(entries, 'Historique des autres recettes', 'autres_recettes.pdf', false);
+  const entries = filterByPeriod(getAccounting().filter(e=>e.type==='recette').slice().reverse(), 'date', 'recettes');
+  const f = comptaPeriodFilters.recettes;
+  const periodLabel = (f.year||f.month) ? ` — ${f.month?MONTH_NAMES[f.month-1]+' ':''}${f.year||''}` : '';
+  exportEntriesPDF(entries, 'Historique des autres recettes'+periodLabel, 'autres_recettes.pdf', false);
 }
 
 /* ================= PHASE 3 : rôles autorisés à publier/administrer ================= */
@@ -2757,7 +2827,7 @@ function pageDocuments(session){
       <button class="btn btn-primary" id="docUploadBtn">${ICONS.plus} Ajouter le document</button>
     </div>` : ''}
     <div class="card">
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr><th>Nom</th><th>Ajouté par</th><th>Date</th><th></th></tr></thead>
         <tbody>
           ${docs.length ? docs.map(d=>`
@@ -2771,7 +2841,7 @@ function pageDocuments(session){
               </td>
             </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun document partagé pour le moment.</td></tr>`}
         </tbody>
-      </table>
+      </table></div>
     </div>
   `;
 }
@@ -2918,7 +2988,7 @@ function renderDonsTab(tab, session){
         <h3 style="margin:0;">Historique des dons confirmés</h3>
         <button class="btn btn-accent" onclick="exportDonationsHistoryPDF()">${ICONS.pdf} Télécharger l'historique (PDF)</button>
       </div>
-      <table style="margin-top:14px;">
+      <div class="table-scroll"><table style="margin-top:14px;">
         <thead><tr><th>Date</th><th>Donateur</th><th>Campagne</th><th>Montant</th><th></th></tr></thead>
         <tbody>
           ${confirmed.length ? confirmed.map(d=>`
@@ -2930,7 +3000,7 @@ function renderDonsTab(tab, session){
               <td><button class="btn btn-accent btn-sm" onclick="exportDonationReceiptPDF('${d.id}')">${ICONS.pdf} Reçu</button></td>
             </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun don confirmé pour le moment.</td></tr>`}
         </tbody>
-      </table>
+      </table></div>
     </div>`;
   }
   return '';
@@ -3124,7 +3194,7 @@ function renderBoutiqueTab(tab, session){
     const mine = orders.filter(o=>o.buyerName===session.fullName).slice().reverse();
     return `
     <div class="card">
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr><th>Date</th><th>Produit</th><th>Qté</th><th>Total</th><th>Statut</th></tr></thead>
         <tbody>
           ${mine.length ? mine.map(o=>`
@@ -3136,7 +3206,7 @@ function renderBoutiqueTab(tab, session){
               <td>${orderStatusBadge(o.status)}</td>
             </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);padding:20px;">Vous n'avez pas encore commandé.</td></tr>`}
         </tbody>
-      </table>
+      </table></div>
     </div>`;
   }
 
@@ -3144,7 +3214,7 @@ function renderBoutiqueTab(tab, session){
     const all = orders.slice().reverse();
     return `
     <div class="card">
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr><th>Date</th><th>Acheteur</th><th>Produit</th><th>Qté</th><th>Total</th><th>Statut</th><th></th></tr></thead>
         <tbody>
           ${all.length ? all.map(o=>`
@@ -3160,7 +3230,7 @@ function renderBoutiqueTab(tab, session){
               </td>
             </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune commande pour le moment.</td></tr>`}
         </tbody>
-      </table>
+      </table></div>
     </div>`;
   }
   return '';
@@ -3365,7 +3435,7 @@ function renderOptionsPanel(){
   const users = getUsers();
   const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
   return `
-    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-07-B)</span></p></div>
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-07-D)</span></p></div>
     ${lockedWarn}
     <div class="tabs" id="optTabs">
       <button data-tab="identite" class="active">Identité de l'association</button>
@@ -3437,7 +3507,7 @@ function renderOptionsPanel(){
       </div>
       <div class="card">
         <h3 style="margin-top:0;">Utilisateurs & rôles</h3>
-        <table>
+        <div class="table-scroll"><table>
           <thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th></th></tr></thead>
           <tbody>
             ${users.map(u=>`
@@ -3448,7 +3518,7 @@ function renderOptionsPanel(){
                 <td>${u.role!=='createur' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">${ICONS.trash} Supprimer</button>` : '<span style="color:var(--ink-soft);font-size:12px;">Créateur</span>'}</td>
               </tr>`).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
 
