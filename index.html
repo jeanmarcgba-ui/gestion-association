@@ -133,12 +133,13 @@ img{max-width:100%;display:block;}
 
 /* ---------- Shell (post-login) ---------- */
 .topbar{
-  position:sticky;top:0;z-index:40;
+  position:fixed;top:0;left:0;right:0;z-index:60;
   background:var(--navy);border-bottom:1px solid var(--navy-light);
   display:flex;align-items:center;gap:12px;padding:12px 18px;
   padding-top:calc(12px + env(safe-area-inset-top));
   color:#fff;
 }
+.topbar-spacer{height:64px;padding-top:env(safe-area-inset-top);flex-shrink:0;}
 .topbar .brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0;}
 .topbar .brand-logo{width:36px;height:36px;border-radius:9px;background:#fff;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;}
 .topbar .brand-logo img{width:100%;height:100%;object-fit:cover;}
@@ -179,6 +180,12 @@ img{max-width:100%;display:block;}
   margin-left:auto;background:var(--danger);color:#fff;font-size:10.5px;font-weight:700;
   min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 5px;
 }
+.sidenav-logo{
+  margin-top:auto;padding-top:16px;border-top:1px solid var(--navy-light);
+  display:flex;align-items:center;gap:9px;
+}
+.sidenav-logo img{width:30px;height:30px;border-radius:8px;object-fit:cover;flex-shrink:0;}
+.sidenav-logo span{font-size:11.5px;color:rgba(255,255,255,0.55);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .bottomnav a{position:relative;}
 .bottomnav a .nav-badge{position:absolute;top:2px;right:10px;margin-left:0;}
 .sidenav .divider{height:1px;background:var(--navy-light);margin:10px 4px;}
@@ -208,15 +215,15 @@ main{flex:1;min-width:0;padding:26px 30px 60px;overflow-y:auto;}
 .announcement-banner{
   background:#7A1F2B;
   color:#fff;
-  border:3px solid var(--navy);
-  border-radius:var(--radius);
-  padding:20px 24px;
-  margin-bottom:18px;
-  font-size:19px;
+  border:2px solid var(--navy);
+  border-radius:10px;
+  padding:12px 16px;
+  margin-bottom:14px;
+  font-size:14px;
   font-weight:700;
-  line-height:1.4;
+  line-height:1.35;
   cursor:pointer;
-  box-shadow:0 6px 18px rgba(122,31,43,0.35);
+  box-shadow:0 4px 12px rgba(122,31,43,0.3);
   transition:transform .12s;
 }
 .announcement-banner:hover{transform:translateY(-1px);}
@@ -880,7 +887,7 @@ function renderLogin(){
   return `
   <div class="login-screen">
     <div class="login-card">
-      <div class="login-emblem">${s.assocLogo ? `<img src="${s.assocLogo}" alt="logo">` : `<svg viewBox="0 0 24 24" fill="none" stroke="#F0E1BE" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>`}</div>
+      <div class="login-emblem"><img src="${DEFAULT_LOGO}" alt="logo"></div>
       <h1>${escapeHtml(s.assocName || 'Mon Association')}</h1>
       <p class="sub">Connectez-vous pour accéder à l'espace de gestion</p>
       <form id="loginForm">
@@ -895,7 +902,7 @@ function renderLogin(){
         <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
         <div class="login-error" id="loginError"></div>
       </form>
-      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-06-C</span></div>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-06-E</span></div>
     </div>
   </div>`;
 }
@@ -962,8 +969,15 @@ function renderShell(session, activePath){
     <button class="btn btn-topbar-sync" onclick="manualSync()" title="Actualiser" id="syncBtn">${ICONS.sync}<span class="btn-label">Actualiser</span></button>
     <button class="btn btn-topbar-logout" onclick="logout()" title="Déconnexion">${ICONS.logout}<span class="btn-label">Déconnexion</span></button>
   </div>
+  <div class="topbar-spacer"></div>
   <div class="shell">
-    <nav class="sidenav" id="sidenav">${navLinks}</nav>
+    <nav class="sidenav" id="sidenav">
+      ${navLinks}
+      <div class="sidenav-logo">
+        <img src="${DEFAULT_LOGO}">
+        <span>Application par GJM</span>
+      </div>
+    </nav>
     <main id="mainContent"></main>
   </div>
   <div class="bottomnav">
@@ -1030,14 +1044,14 @@ function pageAccueil(session){
   const dismissed = getDismissedAnnouncements(session.username);
   const activeAnnouncements = getAnnouncements().filter(a=>!dismissed.includes(a.id));
   const announcementsHtml = activeAnnouncements.map(a=>`
-    <div class="announcement-banner" onclick="handleDismissAnnouncement('${a.id}')">
-      ${ICONS.bell} ${escapeHtml(a.message)}
-      <div style="font-size:12px;font-weight:400;opacity:.85;margin-top:6px;">Cliquez pour masquer cette notification</div>
+    <div class="announcement-banner" onclick="openAnnouncementModal('${a.id}')">
+      ${ICONS.bell} ${escapeHtml(a.message.length > 90 ? a.message.slice(0,90)+'…' : a.message)}
+      <div style="font-size:11px;font-weight:400;opacity:.85;margin-top:4px;">Cliquez pour voir les instructions complètes</div>
     </div>`).join('');
   return `
     ${announcementsHtml}
     <div class="welcome-banner" style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
-      <div><h1>Bonjour, ${escapeHtml(session.fullName.split(' ')[0])} 👋</h1><p>Bienvenue sur l'espace de gestion de ${escapeHtml(s.assocName||'votre association')}.</p></div>
+      <div><h1>Bonjour, ${escapeHtml(session.fullName)} 👋</h1><p>Bienvenue sur l'espace de gestion de ${escapeHtml(s.assocName||'votre association')}.</p></div>
       ${s.assocLogo ? `<img src="${s.assocLogo}" style="width:64px;height:64px;border-radius:14px;object-fit:cover;flex-shrink:0;box-shadow:0 0 0 3px rgba(255,255,255,0.25);position:relative;z-index:1;">` : ''}
     </div>
     ${lockWarning}
@@ -1068,8 +1082,54 @@ function pageAccueil(session){
 }
 
 /* ================= MEMBRES ================= */
+function openAnnouncementModal(id){
+  const a = getAnnouncements().find(x=>x.id===id);
+  if(!a) return;
+  const s = getSettings()||{};
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-backdrop';
+  overlay.id = 'announcementOverlay';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:560px;padding:0;overflow:hidden;">
+      <div style="background:#7A1F2B;color:#fff;padding:18px 22px;display:flex;align-items:center;gap:12px;border-bottom:4px solid var(--navy);">
+        ${s.assocLogo?`<img src="${s.assocLogo}" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">`:''}
+        <div>
+          <div style="font-weight:700;font-size:15px;">${escapeHtml(s.assocName||'Association')}</div>
+          <div style="font-size:11.5px;opacity:.85;">Notification du ${fmtDateTime(a.createdAt)}</div>
+        </div>
+      </div>
+      <div style="padding:26px 24px;background:#fff;">
+        <h3 style="margin:0 0 14px;color:var(--ink);">Instructions</h3>
+        <p style="white-space:pre-wrap;line-height:1.7;color:var(--ink);font-size:15px;">${escapeHtml(a.message)}</p>
+      </div>
+      <div style="padding:16px 22px;background:var(--bg);display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-accent" onclick="exportAnnouncementPDF('${a.id}')">${ICONS.pdf} Télécharger en PDF</button>
+        <button class="btn btn-primary" onclick="handleDismissAnnouncement('${a.id}')">J'ai compris — Fermer</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', e=>{ if(e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+function closeAnnouncementModal(){
+  const el = document.getElementById('announcementOverlay');
+  if(el) el.remove();
+}
+function exportAnnouncementPDF(id){
+  const a = getAnnouncements().find(x=>x.id===id);
+  if(!a) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  let {y, margin, pageWidth} = pdfDrawHeader(doc, 'Notification');
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(21,51,39);
+  doc.text('Instructions', margin, y); y += 26;
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(27,43,34);
+  const lines = doc.splitTextToSize(a.message, pageWidth - margin*2);
+  doc.text(lines, margin, y);
+  doc.save('notification.pdf');
+}
 function handleDismissAnnouncement(id){
   dismissAnnouncement(id, getSession().username);
+  closeAnnouncementModal();
   render();
 }
 
@@ -3088,7 +3148,7 @@ function renderOptionsPanel(){
   const users = getUsers();
   const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
   return `
-    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-06-C)</span></p></div>
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-06-E)</span></p></div>
     ${lockedWarn}
     <div class="tabs" id="optTabs">
       <button data-tab="identite" class="active">Identité de l'association</button>
