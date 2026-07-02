@@ -867,7 +867,7 @@ function renderLogin(){
         <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
         <div class="login-error" id="loginError"></div>
       </form>
-      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-05-G</span></div>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-06-A</span></div>
     </div>
   </div>`;
 }
@@ -1000,7 +1000,10 @@ function pageAccueil(session){
   const lockWarning = isExpiryUnset() && session.role==='createur' ? `
     <div class="locked-banner">${ICONS.bell} Aucune date d'utilisation n'est définie : tant que vous ne la renseignez pas dans Options, les informations saisies dans l'application ne seront pas conservées comme valides.</div>` : '';
   return `
-    <div class="welcome-banner"><h1>Bonjour, ${escapeHtml(session.fullName.split(' ')[0])} 👋</h1><p>Bienvenue sur l'espace de gestion de ${escapeHtml(s.assocName||'votre association')}.</p></div>
+    <div class="welcome-banner" style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+      <div><h1>Bonjour, ${escapeHtml(session.fullName.split(' ')[0])} 👋</h1><p>Bienvenue sur l'espace de gestion de ${escapeHtml(s.assocName||'votre association')}.</p></div>
+      ${s.assocLogo ? `<img src="${s.assocLogo}" style="width:64px;height:64px;border-radius:14px;object-fit:cover;flex-shrink:0;box-shadow:0 0 0 3px rgba(255,255,255,0.25);position:relative;z-index:1;">` : ''}
+    </div>
     ${lockWarning}
     <div class="grid grid-3" style="margin-bottom:22px;">
       <div class="stat"><div class="n">${members.length}</div><div class="l">Membres inscrits</div></div>
@@ -1193,6 +1196,7 @@ function attachFileDrop(key){
 function pageMembreDetail(session, id){
   const m = getMembers().find(x=>x.id===id);
   if(!m) return `<div class="card">Membre introuvable. <a href="#/membres">Retour à l'annuaire</a></div>`;
+  const settingsForPay = getSettings()||{};
   const spec = memberFieldsSpec();
   const isSelf = session.role==='membre' && m.linkedUserId===session.userId;
   const canEdit = ['createur','admin','tresoriere'].includes(session.role) || isSelf;
@@ -1252,12 +1256,14 @@ function pageMembreDetail(session, id){
           <p style="color:var(--ink-soft);font-size:13px;margin-top:-6px;">Après avoir envoyé l'argent sur l'un des numéros de collecte (voir Comptabilité), déclarez votre paiement ici pour que le trésorier le valide.</p>
           <form id="paymentForm">
             <div class="field"><label>Type</label>
-              <select id="payType">
+              <select id="payType" onchange="updatePayAmountFromType()">
                 <option value="cotisation">Cotisation</option>
                 <option value="adhesion">Adhésion</option>
               </select>
             </div>
-            <div class="field"><label>Montant (FCFA)</label><input type="number" id="payAmount" min="0" required></div>
+            <div class="field"><label>Montant (FCFA)</label><input type="number" id="payAmount" min="0" value="${settingsForPay.montantCotisation||''}" required>
+              <small class="hint">Montant obligatoire fixé par l'association dans Options — modifiable si besoin (paiement partiel, etc.).</small>
+            </div>
             <div class="field"><label>Moyen de paiement</label>
               <select id="payMethod">
                 <option value="Orange Money">Orange Money</option>
@@ -1300,6 +1306,13 @@ function memberPaymentsHtml(memberId){
     </div>`;
 }
 
+function updatePayAmountFromType(){
+  const s = getSettings()||{};
+  const type = document.getElementById('payType').value;
+  const amountInput = document.getElementById('payAmount');
+  if(amountInput) amountInput.value = type==='cotisation' ? (s.montantCotisation||'') : (s.montantAdhesion||'');
+}
+
 function declarePayment(session){
   const memberId = document.getElementById('payMemberId').value;
   const type = document.getElementById('payType').value;
@@ -1327,6 +1340,7 @@ function confirmPayment(id){
   const session = getSession();
   p.status = 'confirme';
   p.confirmedBy = session.fullName;
+  p.confirmedByRole = session.role;
   p.confirmedAt = new Date().toISOString();
   setPayments(payments);
 
@@ -1347,7 +1361,7 @@ function confirmPayment(id){
   entries.push({
     id: uid(), type:'recette', amount: p.amount,
     description: `${p.type==='cotisation'?'Cotisation':'Adhésion'} — ${p.memberName} (${p.method})`,
-    date: p.date, recordedBy: session.fullName, recordedAt: new Date().toISOString()
+    date: p.date, recordedBy: session.fullName, recordedByRole: session.role, recordedAt: new Date().toISOString()
   });
   setAccounting(entries);
 
@@ -1360,12 +1374,113 @@ function rejectPayment(id){
   const payments = getPayments();
   const idx = payments.findIndex(p=>p.id===id);
   if(idx<0) return;
+  const session = getSession();
   payments[idx].status = 'rejete';
-  payments[idx].confirmedBy = getSession().fullName;
+  payments[idx].confirmedBy = session.fullName;
+  payments[idx].confirmedByRole = session.role;
   payments[idx].confirmedAt = new Date().toISOString();
   setPayments(payments);
   toast('Paiement rejeté.');
   render();
+}
+
+function updateRegisterAmountFromType(){
+  const s = getSettings()||{};
+  const type = document.getElementById('rpType').value;
+  const amountInput = document.getElementById('rpAmount');
+  if(amountInput) amountInput.value = type==='cotisation' ? (s.montantCotisation||'') : (s.montantAdhesion||'');
+}
+
+function registerPayment(session){
+  const memberId = document.getElementById('rpMember').value;
+  const type = document.getElementById('rpType').value;
+  const amount = Number(document.getElementById('rpAmount').value);
+  const method = document.getElementById('rpMethod').value;
+  const reference = document.getElementById('rpRef').value.trim();
+  if(!memberId){ toast('Veuillez choisir un membre.'); return; }
+  if(!amount){ toast('Veuillez indiquer un montant.'); return; }
+  const member = getMembers().find(m=>m.id===memberId);
+  const now = new Date().toISOString();
+  const payments = getPayments();
+  payments.push({
+    id: uid(), memberId, memberName: member ? `${member.prenom} ${member.nom}` : '—',
+    type, amount, method, reference, date: now.slice(0,10),
+    status: 'confirme',
+    declaredBy: session.fullName, declaredAt: now,
+    confirmedBy: session.fullName, confirmedByRole: session.role, confirmedAt: now
+  });
+  setPayments(payments);
+
+  if(type==='cotisation' && member){
+    const members = getMembers();
+    const mIdx = members.findIndex(m=>m.id===memberId);
+    if(mIdx>=0){
+      members[mIdx].cotisationStatus = 'a_jour';
+      members[mIdx].updatedBy = session.fullName;
+      members[mIdx].updatedAt = now;
+      setMembers(members);
+    }
+  }
+
+  const entries = getAccounting();
+  entries.push({
+    id: uid(), type:'recette', amount,
+    description: `${type==='cotisation'?'Cotisation':'Adhésion'} — ${member?member.prenom+' '+member.nom:''} (${method})`,
+    date: now.slice(0,10), recordedBy: session.fullName, recordedByRole: session.role, recordedAt: now
+  });
+  setAccounting(entries);
+
+  toast('Paiement enregistré et confirmé.');
+  render();
+}
+
+function exportPaymentsHistoryPDF(){
+  const processed = getPayments().filter(p=>p.status!=='en_attente').slice().reverse();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  let {y, margin, pageWidth} = pdfDrawHeader(doc, 'Historique des paiements traités');
+
+  const colDate = margin, colMember = margin+65, colType = margin+185, colStatus = margin+250, colBy = margin+320, colAmount = pageWidth-margin;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(90,100,95);
+  doc.text('Date', colDate, y);
+  doc.text('Membre', colMember, y);
+  doc.text('Type', colType, y);
+  doc.text('Statut', colStatus, y);
+  doc.text('Enregistré par', colBy, y);
+  doc.text('Montant', colAmount, y, {align:'right'});
+  y += 8;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 16;
+
+  let total = 0;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(27,43,34);
+  if(!processed.length){
+    doc.setTextColor(140,140,140);
+    doc.text('Aucun paiement traité pour le moment.', margin, y);
+    y += 18;
+  }
+  processed.forEach(p=>{
+    if(p.status==='confirme') total += Number(p.amount||0);
+    doc.setTextColor(27,43,34);
+    doc.text(fmtDate(p.date), colDate, y);
+    doc.text(doc.splitTextToSize(p.memberName||'', 110), colMember, y);
+    doc.text(p.type==='cotisation'?'Cotisation':'Adhésion', colType, y);
+    doc.text(p.status==='confirme'?'Confirmé':'Rejeté', colStatus, y);
+    doc.text(doc.splitTextToSize(`${p.confirmedBy||'—'} (${p.confirmedByRole?roleLabel(p.confirmedByRole):'—'})`, 130), colBy, y);
+    doc.text(fmtFCFA(p.amount), colAmount, y, {align:'right'});
+    y += 16;
+    if(y > 770){ doc.addPage(); y = 60; }
+  });
+
+  y += 10;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 18;
+  doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(21,51,39);
+  doc.text('Total des paiements confirmés', colMember, y);
+  doc.text(fmtFCFA(total), colAmount, y, {align:'right'});
+
+  doc.save('historique_paiements.pdf');
 }
 
 function updateCotisationStatus(id){
@@ -1530,10 +1645,44 @@ function renderComptaTab(tab, session){
     </div>`;
   }
   if(tab==='paiements'){
+    const settingsForPay = getSettings()||{};
+    const members = getMembers();
     const payments = getPayments().slice().reverse();
     const pending = payments.filter(p=>p.status==='en_attente');
     const others = payments.filter(p=>p.status!=='en_attente');
     return `
+    <div class="card">
+      <h3 style="margin-top:0;">Enregistrer un paiement</h3>
+      <p style="color:var(--ink-soft);font-size:13px;margin-top:-6px;">Pour enregistrer directement un paiement reçu (cotisation ou adhésion) au nom d'un membre.</p>
+      <form id="registerPaymentForm">
+        <div class="grid grid-2">
+          <div class="field"><label>Membre</label>
+            <select id="rpMember" required>
+              <option value="">Choisir…</option>
+              ${members.map(m=>`<option value="${m.id}">${escapeHtml(m.prenom)} ${escapeHtml(m.nom)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Type</label>
+            <select id="rpType" onchange="updateRegisterAmountFromType()">
+              <option value="cotisation">Cotisation</option>
+              <option value="adhesion">Adhésion</option>
+            </select>
+          </div>
+          <div class="field"><label>Montant (FCFA)</label><input type="number" id="rpAmount" min="0" value="${settingsForPay.montantCotisation||''}" required></div>
+          <div class="field"><label>Moyen de paiement</label>
+            <select id="rpMethod">
+              <option value="Orange Money">Orange Money</option>
+              <option value="Moov Money">Moov Money</option>
+              <option value="MTN Money">MTN Money</option>
+              <option value="Wave">Wave</option>
+              <option value="Espèces">Espèces</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>Référence (optionnel)</label><input type="text" id="rpRef" placeholder="Ex : TX123456"></div>
+        <button type="submit" class="btn btn-primary">${ICONS.plus} Enregistrer et confirmer</button>
+      </form>
+    </div>
     <div class="card">
       <h3 style="margin-top:0;">Paiements en attente de validation</h3>
       ${pending.length ? pending.map(p=>`
@@ -1547,9 +1696,12 @@ function renderComptaTab(tab, session){
         </div>`).join('') : `<div style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun paiement en attente.</div>`}
     </div>
     <div class="card">
-      <h3 style="margin-top:0;">Historique des paiements traités</h3>
-      <table>
-        <thead><tr><th>Date</th><th>Membre</th><th>Type</th><th>Montant</th><th>Statut</th></tr></thead>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">Historique des paiements traités</h3>
+        <button class="btn btn-accent" onclick="exportPaymentsHistoryPDF()">${ICONS.pdf} Télécharger l'historique (PDF)</button>
+      </div>
+      <table style="margin-top:14px;">
+        <thead><tr><th>Date</th><th>Membre</th><th>Type</th><th>Montant</th><th>Statut</th><th>Enregistré par</th><th>Heure</th></tr></thead>
         <tbody>
           ${others.length ? others.map(p=>`
             <tr>
@@ -1558,7 +1710,9 @@ function renderComptaTab(tab, session){
               <td>${p.type==='cotisation'?'Cotisation':'Adhésion'}</td>
               <td>${fmtFCFA(p.amount)}</td>
               <td>${p.status==='confirme'?`<span class="badge badge-ok">Confirmé</span>`:`<span class="badge badge-warn" style="background:#F7DADA;color:var(--danger);">Rejeté</span>`}</td>
-            </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun historique.</td></tr>`}
+              <td>${escapeHtml(p.confirmedBy||'—')} ${p.confirmedByRole?`<span style="color:var(--ink-soft);font-size:11.5px;">(${roleLabel(p.confirmedByRole)})</span>`:''}</td>
+              <td style="color:var(--ink-soft);font-size:12.5px;">${p.confirmedAt?fmtDateTime(p.confirmedAt):'—'}</td>
+            </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun historique.</td></tr>`}
         </tbody>
       </table>
     </div>`;
@@ -1589,7 +1743,7 @@ function renderComptaTab(tab, session){
         <button class="btn btn-accent" onclick="exportMouvementsPDF()">${ICONS.pdf} Télécharger (PDF)</button>
       </div>
       <table style="margin-top:14px;">
-        <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Montant</th><th>Par</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Montant</th><th>Enregistré par</th><th>Heure</th><th></th></tr></thead>
         <tbody>
           ${entries.length ? entries.map(e=>`
             <tr>
@@ -1597,9 +1751,10 @@ function renderComptaTab(tab, session){
               <td>${e.type==='depense'?'Dépense':'Achat'}</td>
               <td>${escapeHtml(e.description)}</td>
               <td style="color:var(--danger);font-weight:600;">- ${fmtFCFA(e.amount)}</td>
-              <td>${escapeHtml(e.recordedBy||'—')}</td>
+              <td>${escapeHtml(e.recordedBy||'—')} ${e.recordedByRole?`<span style="color:var(--ink-soft);font-size:11.5px;">(${roleLabel(e.recordedByRole)})</span>`:''}</td>
+              <td style="color:var(--ink-soft);font-size:12.5px;">${e.recordedAt?fmtDateTime(e.recordedAt):'—'}</td>
               <td><button class="btn btn-danger btn-sm" onclick="deleteAccountingEntry('${e.id}')">${ICONS.trash} Supprimer</button></td>
-            </tr>`).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune dépense ou achat enregistré.</td></tr>`}
+            </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune dépense ou achat enregistré.</td></tr>`}
         </tbody>
       </table>
     </div>`;
@@ -1624,16 +1779,17 @@ function renderComptaTab(tab, session){
         <button class="btn btn-accent" onclick="exportRecettesPDF()">${ICONS.pdf} Télécharger (PDF)</button>
       </div>
       <table style="margin-top:14px;">
-        <thead><tr><th>Date</th><th>Description</th><th>Montant</th><th>Par</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Description</th><th>Montant</th><th>Enregistré par</th><th>Heure</th><th></th></tr></thead>
         <tbody>
           ${entries.length ? entries.map(e=>`
             <tr>
               <td>${fmtDate(e.date)}</td>
               <td>${escapeHtml(e.description)}</td>
               <td style="color:var(--primary);font-weight:600;">+ ${fmtFCFA(e.amount)}</td>
-              <td>${escapeHtml(e.recordedBy||'—')}</td>
+              <td>${escapeHtml(e.recordedBy||'—')} ${e.recordedByRole?`<span style="color:var(--ink-soft);font-size:11.5px;">(${roleLabel(e.recordedByRole)})</span>`:''}</td>
+              <td style="color:var(--ink-soft);font-size:12.5px;">${e.recordedAt?fmtDateTime(e.recordedAt):'—'}</td>
               <td><button class="btn btn-danger btn-sm" onclick="deleteAccountingEntry('${e.id}')">${ICONS.trash} Supprimer</button></td>
-            </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune recette manuelle enregistrée.</td></tr>`}
+            </tr>`).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune recette manuelle enregistrée.</td></tr>`}
         </tbody>
       </table>
     </div>`;
@@ -1659,10 +1815,11 @@ function saveAccountingEntry(type, prefix){
   const description = document.getElementById(prefix+'Desc').value.trim();
   const date = document.getElementById(prefix+'Date').value;
   if(!amount || !description || !date){ toast('Veuillez remplir tous les champs.'); return; }
+  const session = getSession();
   const entries = getAccounting();
   entries.push({
     id: uid(), type, amount, description, date,
-    recordedBy: getSession().fullName, recordedAt: new Date().toISOString()
+    recordedBy: session.fullName, recordedByRole: session.role, recordedAt: new Date().toISOString()
   });
   setAccounting(entries);
   toast('Enregistré avec succès.');
@@ -2890,7 +3047,7 @@ function renderOptionsPanel(){
   const users = getUsers();
   const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
   return `
-    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-05-G)</span></p></div>
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-06-A)</span></p></div>
     ${lockedWarn}
     <div class="tabs" id="optTabs">
       <button data-tab="identite" class="active">Identité de l'association</button>
@@ -2908,7 +3065,7 @@ function renderOptionsPanel(){
         <div class="field">
           <label>Logo de l'association</label>
           <label class="file-drop ${s.assocLogo?'has-file':''}" id="drop_logo">
-            ${s.assocLogo?`<img src="${s.assocLogo}" class="file-thumb">Cliquer pour changer le logo`:'Cliquer pour ajouter un logo'}
+            ${s.assocLogo?`<span class="file-drop-content"><img src="${s.assocLogo}" class="file-thumb">Logo actuel — cliquer pour changer</span>`:`<span class="file-drop-content">Cliquer pour ajouter un logo</span>`}
             <input type="file" id="optLogo" accept="image/*">
           </label>
         </div>
@@ -2980,12 +3137,16 @@ function roleLabel(r){
   return {createur:'Créateur', admin:'Administrateur', tresoriere:'Trésorier(ère)', membre:'Membre simple'}[r] || r;
 }
 
-function saveIdentity(){
+async function saveIdentity(){
   const s = getSettings()||{};
   s.assocName = document.getElementById('optAssocName').value.trim() || 'Mon Association';
   s.assocPhone = document.getElementById('optAssocPhone').value.trim();
   const logoInput = document.getElementById('optLogo');
-  if(logoInput.dataset.value) s.assocLogo = logoInput.dataset.value;
+  if(logoInput.files[0]){
+    try{
+      s.assocLogo = await compressImageFile(logoInput.files[0], 400, 0.85);
+    }catch(e){ toast("La photo n'a pas pu être traitée, l'ancien logo est conservé."); }
+  }
   setSettings(s);
   updateAppIcons();
   toast('Identité de l\'association enregistrée.');
@@ -3206,6 +3367,13 @@ function attachPageEvents(path, session){
         render();
       });
     }
+    const registerPaymentForm = document.getElementById('registerPaymentForm');
+    if(registerPaymentForm){
+      registerPaymentForm.addEventListener('submit', e=>{
+        e.preventDefault();
+        registerPayment(session);
+      });
+    }
     const mouvForm = document.getElementById('mouvForm');
     if(mouvForm){
       mouvForm.addEventListener('submit', e=>{
@@ -3271,7 +3439,7 @@ function attachPageEvents(path, session){
         document.querySelectorAll('.opt-panel').forEach(p=>p.classList.add('hidden'));
         document.querySelector(`.opt-panel[data-panel="${btn.dataset.tab}"]`).classList.remove('hidden');
       });
-      attachFileDrop('logo');
+      wireFilePreview('optLogo', 'drop_logo');
     }
   }
 }
