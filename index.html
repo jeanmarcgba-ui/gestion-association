@@ -464,8 +464,17 @@ function setDocumentsStore(d){ saveJSON(LS.documents_store, d); }
 function getPayments(){ return loadJSON(LS.payments, []); }
 // Le statut de cotisation est calculé automatiquement à partir des paiements réellement
 // confirmés par la trésorerie — jamais modifié manuellement, pour rester toujours exact.
+// En repli, si l'identifiant ne correspond pas (ex. décalage entre appareils avant
+// synchronisation complète), on retrouve le paiement par nom + prénom du membre.
 function isMemberCotisationAJour(memberId){
-  return getPayments().some(p => p.memberId===memberId && p.type==='cotisation' && p.status==='confirme');
+  const payments = getPayments();
+  if(payments.some(p => p.memberId===memberId && p.type==='cotisation' && p.status==='confirme')) return true;
+
+  const member = getMembers().find(m=>m.id===memberId);
+  if(!member) return false;
+  const fullName = `${member.prenom||''} ${member.nom||''}`.trim().toLowerCase();
+  if(!fullName) return false;
+  return payments.some(p => p.type==='cotisation' && p.status==='confirme' && (p.memberName||'').trim().toLowerCase()===fullName);
 }
 function setPayments(p){ saveJSON(LS.payments, p); }
 function getCampaigns(){ return loadJSON(LS.campaigns, []); }
@@ -918,7 +927,7 @@ function renderLogin(){
         <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
         <div class="login-error" id="loginError"></div>
       </form>
-      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-07-D</span></div>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-07-E</span></div>
     </div>
   </div>`;
 }
@@ -1527,12 +1536,19 @@ function deletePayment(id){
 function editPayment(id){
   const p = getPayments().find(x=>x.id===id);
   if(!p) return;
+  const members = getMembers();
   const overlay = document.createElement('div');
   overlay.className = 'modal-backdrop';
   overlay.id = 'editPaymentOverlay';
   overlay.innerHTML = `
     <div class="modal" style="max-width:420px;">
       <h2>Modifier le paiement</h2>
+      <div class="field"><label>Membre</label>
+        <select id="editPayMember">
+          ${members.map(m=>`<option value="${m.id}" ${p.memberId===m.id?'selected':''}>${escapeHtml(m.prenom)} ${escapeHtml(m.nom)}</option>`).join('')}
+        </select>
+        <small class="hint">Si le statut de ce membre ne se met pas à jour malgré une confirmation, re-sélectionnez-le ici et enregistrez pour recorriger le lien.</small>
+      </div>
       <div class="field"><label>Type</label>
         <select id="editPayType">
           <option value="cotisation" ${p.type==='cotisation'?'selected':''}>Cotisation</option>
@@ -1565,6 +1581,12 @@ function saveEditedPayment(id){
   const idx = payments.findIndex(p=>p.id===id);
   if(idx<0) return;
   const p = payments[idx];
+  const newMemberId = document.getElementById('editPayMember').value;
+  const member = getMembers().find(m=>m.id===newMemberId);
+  if(member){
+    p.memberId = newMemberId;
+    p.memberName = `${member.prenom} ${member.nom}`;
+  }
   p.type = document.getElementById('editPayType').value;
   p.amount = Number(document.getElementById('editPayAmount').value)||0;
   p.method = document.getElementById('editPayMethod').value;
@@ -3435,7 +3457,7 @@ function renderOptionsPanel(){
   const users = getUsers();
   const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
   return `
-    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-07-D)</span></p></div>
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-07-E)</span></p></div>
     ${lockedWarn}
     <div class="tabs" id="optTabs">
       <button data-tab="identite" class="active">Identité de l'association</button>
@@ -4003,4 +4025,3 @@ function saveMemberForm(session){
 </script>
 </body>
 </html>
- 
