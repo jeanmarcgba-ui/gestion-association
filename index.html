@@ -167,6 +167,8 @@ img{max-width:100%;display:block;}
 .sidenav{
   width:230px;flex-shrink:0;background:var(--navy);border-right:1px solid var(--navy-light);
   padding:18px 12px;display:flex;flex-direction:column;gap:2px;
+  position:fixed;top:64px;left:0;bottom:0;z-index:50;overflow-y:auto;
+  padding-top:calc(18px + env(safe-area-inset-top));
 }
 .sidenav a{
   display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
@@ -191,7 +193,7 @@ img{max-width:100%;display:block;}
 .sidenav .divider{height:1px;background:var(--navy-light);margin:10px 4px;}
 .sidenav .section-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.45);padding:10px 12px 4px;font-weight:700;}
 
-main{flex:1;min-width:0;padding:26px 30px 60px;overflow-y:auto;}
+main{flex:1;min-width:0;padding:26px 30px 60px;overflow-y:auto;margin-left:230px;}
 .page-head{margin-bottom:22px;}
 .page-head h1{font-size:25px;margin:0 0 4px;}
 .page-head p{color:var(--ink-soft);margin:0;font-size:14px;}
@@ -325,7 +327,7 @@ table tr:hover td{background:var(--bg);}
 @media (max-width:880px){
   .sidenav{display:none;}
   .topbar .menu-btn{display:block;}
-  main{padding:18px 14px 90px;}
+  main{padding:18px 14px 90px;margin-left:0;}
   .grid-2,.grid-3{grid-template-columns:1fr;}
   .bottomnav{display:block;}
 }
@@ -501,8 +503,8 @@ function getCotisationExtraStatusByLabel(label){
   const payments = getPayments().filter(p => p.type==='cotisation_extra' && p.label===label && p.status==='confirme');
   return members.map(m=>{
     const fullName = `${m.prenom||''} ${m.nom||''}`.trim().toLowerCase();
-    const paid = payments.some(p => p.memberId===m.id || (p.memberName||'').trim().toLowerCase()===fullName);
-    return {member: m, paid};
+    const payment = payments.find(p => p.memberId===m.id || (p.memberName||'').trim().toLowerCase()===fullName);
+    return {member: m, paid: !!payment, payment};
   });
 }
 
@@ -515,8 +517,11 @@ function renderCotisationExtraTracker(){
   const paidCount = statusList.filter(s=>s.paid).length;
   return `
     <div class="card">
-      <h3 style="margin-top:0;">Suivi d'une cotisation extraordinaire</h3>
-      <p style="color:var(--ink-soft);font-size:13px;margin-top:-6px;">Voir qui a payé une cotisation extraordinaire précise.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">Suivi d'une cotisation extraordinaire</h3>
+        <button class="btn btn-accent" onclick="exportCotisationExtraPDF()">${ICONS.pdf} Télécharger (PDF)</button>
+      </div>
+      <p style="color:var(--ink-soft);font-size:13px;">Voir qui a payé une cotisation extraordinaire précise.</p>
       <div class="field" style="max-width:320px;">
         <label>Cotisation extraordinaire</label>
         <select onchange="setCotisationExtraSelected(this.value)">
@@ -526,12 +531,52 @@ function renderCotisationExtraTracker(){
       <p style="font-size:13.5px;color:var(--ink-soft);">${paidCount} / ${statusList.length} membres ont payé.</p>
       <div class="grid grid-2">
         ${statusList.map(s=>`
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:var(--bg);">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:var(--bg);gap:8px;flex-wrap:wrap;">
             <span style="font-size:13.5px;">${escapeHtml(s.member.prenom)} ${escapeHtml(s.member.nom)}</span>
-            <span class="badge ${s.paid?'badge-ok':'badge-warn'}">${s.paid?'Payé':'Non payé'}</span>
+            <span style="display:flex;align-items:center;gap:6px;">
+              <span class="badge ${s.paid?'badge-ok':'badge-warn'}">${s.paid?'Payé':'Non payé'}</span>
+              ${s.paid ? `
+                <button class="btn btn-edit btn-sm" style="padding:4px 8px;font-size:11px;" onclick="editPayment('${s.payment.id}')">Modifier</button>
+                <button class="btn btn-danger btn-sm" style="padding:4px 8px;font-size:11px;" onclick="deletePayment('${s.payment.id}')">${ICONS.trash}</button>
+              ` : ''}
+            </span>
           </div>`).join('')}
       </div>
     </div>`;
+}
+function exportCotisationExtraPDF(){
+  const label = cotisationExtraSelected;
+  const statusList = getCotisationExtraStatusByLabel(label);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  let {y, margin, pageWidth} = pdfDrawHeader(doc, `Cotisation extraordinaire — ${label}`);
+
+  const colName = margin, colStatus = pageWidth-margin-100;
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(90,100,95);
+  doc.text('Membre', colName, y);
+  doc.text('Statut', colStatus, y);
+  y += 8;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 16;
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  statusList.forEach(s=>{
+    doc.setTextColor(27,43,34);
+    doc.text(`${s.member.prenom||''} ${s.member.nom||''}`.trim(), colName, y);
+    doc.setTextColor(s.paid ? 33 : 179, s.paid ? 80 : 67, s.paid ? 60 : 43);
+    doc.text(s.paid ? 'Payé' : 'Non payé', colStatus, y);
+    y += 18;
+    if(y > 770){ doc.addPage(); y = 60; }
+  });
+
+  y += 10;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 18;
+  doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(21,51,39);
+  const paidCount = statusList.filter(s=>s.paid).length;
+  doc.text(`${paidCount} / ${statusList.length} membres ont payé`, colName, y);
+
+  doc.save(`cotisation_extra_${label.replace(/\s+/g,'_')}.pdf`);
 }
 function setCotisationExtraSelected(label){
   cotisationExtraSelected = label;
@@ -989,7 +1034,7 @@ function renderLogin(){
         <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
         <div class="login-error" id="loginError"></div>
       </form>
-      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-08-A</span></div>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-08-B</span></div>
     </div>
   </div>`;
 }
@@ -3538,7 +3583,7 @@ function renderOptionsPanel(){
   const users = getUsers();
   const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
   return `
-    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-08-A)</span></p></div>
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-08-B)</span></p></div>
     ${lockedWarn}
     <div class="tabs" id="optTabs">
       <button data-tab="identite" class="active">Identité de l'association</button>
