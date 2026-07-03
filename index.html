@@ -464,18 +464,80 @@ function setDocumentsStore(d){ saveJSON(LS.documents_store, d); }
 function getPayments(){ return loadJSON(LS.payments, []); }
 // Le statut de cotisation est calculé automatiquement à partir des paiements réellement
 // confirmés par la trésorerie — jamais modifié manuellement, pour rester toujours exact.
-// En repli, si l'identifiant ne correspond pas (ex. décalage entre appareils avant
-// synchronisation complète), on retrouve le paiement par nom + prénom du membre.
+// Une cotisation "mensuelle" ne couvre que le mois de sa date : dès que le mois change,
+// le statut repasse automatiquement à "En attente" tant qu'aucun nouveau paiement n'est confirmé.
+// Une adhésion confirmée ce mois-ci couvre aussi le mois en cours.
+// Les cotisations EXTRAORDINAIRES sont suivies séparément (voir isMemberCotisationExtraPayee)
+// et n'influencent pas ce statut mensuel.
 function isMemberCotisationAJour(memberId){
   const payments = getPayments();
-  if(payments.some(p => p.memberId===memberId && p.type==='cotisation' && p.status==='confirme')) return true;
-
   const member = getMembers().find(m=>m.id===memberId);
-  if(!member) return false;
-  const fullName = `${member.prenom||''} ${member.nom||''}`.trim().toLowerCase();
-  if(!fullName) return false;
-  return payments.some(p => p.type==='cotisation' && p.status==='confirme' && (p.memberName||'').trim().toLowerCase()===fullName);
+  const fullName = member ? `${member.prenom||''} ${member.nom||''}`.trim().toLowerCase() : '';
+  const matchesMember = (p) => p.memberId===memberId || (fullName && (p.memberName||'').trim().toLowerCase()===fullName);
+
+  const now = new Date();
+  const curMonth = now.getMonth()+1, curYear = now.getFullYear();
+  const inCurrentMonth = (dateStr) => {
+    if(!dateStr) return false;
+    const d = new Date(dateStr);
+    if(isNaN(d)) return false;
+    return (d.getMonth()+1)===curMonth && d.getFullYear()===curYear;
+  };
+
+  const hasCurrentMonthCotisation = payments.some(p =>
+    matchesMember(p) && p.type==='cotisation' && p.status==='confirme' && inCurrentMonth(p.date)
+  );
+  if(hasCurrentMonthCotisation) return true;
+
+  const hasCurrentMonthAdhesion = payments.some(p =>
+    matchesMember(p) && p.type==='adhesion' && p.status==='confirme' && inCurrentMonth(p.date)
+  );
+  return hasCurrentMonthAdhesion;
 }
+
+// Renvoie la liste des membres et s'ils ont payé une cotisation extraordinaire précise (par libellé)
+function getCotisationExtraStatusByLabel(label){
+  const members = getMembers();
+  const payments = getPayments().filter(p => p.type==='cotisation_extra' && p.label===label && p.status==='confirme');
+  return members.map(m=>{
+    const fullName = `${m.prenom||''} ${m.nom||''}`.trim().toLowerCase();
+    const paid = payments.some(p => p.memberId===m.id || (p.memberName||'').trim().toLowerCase()===fullName);
+    return {member: m, paid};
+  });
+}
+
+let cotisationExtraSelected = '';
+function renderCotisationExtraTracker(){
+  const labels = [...new Set(getPayments().filter(p=>p.type==='cotisation_extra' && p.status==='confirme' && p.label).map(p=>p.label))];
+  if(!labels.length) return '';
+  if(!cotisationExtraSelected || !labels.includes(cotisationExtraSelected)) cotisationExtraSelected = labels[0];
+  const statusList = getCotisationExtraStatusByLabel(cotisationExtraSelected);
+  const paidCount = statusList.filter(s=>s.paid).length;
+  return `
+    <div class="card">
+      <h3 style="margin-top:0;">Suivi d'une cotisation extraordinaire</h3>
+      <p style="color:var(--ink-soft);font-size:13px;margin-top:-6px;">Voir qui a payé une cotisation extraordinaire précise.</p>
+      <div class="field" style="max-width:320px;">
+        <label>Cotisation extraordinaire</label>
+        <select onchange="setCotisationExtraSelected(this.value)">
+          ${labels.map(l=>`<option value="${escapeHtml(l)}" ${l===cotisationExtraSelected?'selected':''}>${escapeHtml(l)}</option>`).join('')}
+        </select>
+      </div>
+      <p style="font-size:13.5px;color:var(--ink-soft);">${paidCount} / ${statusList.length} membres ont payé.</p>
+      <div class="grid grid-2">
+        ${statusList.map(s=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:var(--bg);">
+            <span style="font-size:13.5px;">${escapeHtml(s.member.prenom)} ${escapeHtml(s.member.nom)}</span>
+            <span class="badge ${s.paid?'badge-ok':'badge-warn'}">${s.paid?'Payé':'Non payé'}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+function setCotisationExtraSelected(label){
+  cotisationExtraSelected = label;
+  render();
+}
+
 function setPayments(p){ saveJSON(LS.payments, p); }
 function getCampaigns(){ return loadJSON(LS.campaigns, []); }
 function setCampaigns(c){ saveJSON(LS.campaigns, c); }
@@ -927,7 +989,7 @@ function renderLogin(){
         <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
         <div class="login-error" id="loginError"></div>
       </form>
-      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-07-E</span></div>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-08-A</span></div>
     </div>
   </div>`;
 }
@@ -1387,12 +1449,16 @@ function pageMembreDetail(session, id){
           <form id="paymentForm">
             <div class="field"><label>Type</label>
               <select id="payType" onchange="updatePayAmountFromType()">
-                <option value="cotisation">Cotisation</option>
+                <option value="cotisation">Cotisation (mensuelle)</option>
                 <option value="adhesion">Adhésion</option>
+                <option value="cotisation_extra">Cotisation extraordinaire</option>
               </select>
             </div>
+            <div id="payExtraFields" style="display:none;">
+              <div class="field"><label>Libellé de la cotisation extraordinaire</label><input type="text" id="payExtraLabel" placeholder="Ex : Cotisation urgence toiture"></div>
+            </div>
             <div class="field"><label>Montant (FCFA)</label><input type="number" id="payAmount" min="0" value="${settingsForPay.montantCotisation||''}" required>
-              <small class="hint">Montant obligatoire fixé par l'association dans Options — modifiable si besoin (paiement partiel, etc.).</small>
+              <small class="hint" id="payAmountHint">Montant obligatoire fixé par l'association dans Options — modifiable si besoin (paiement partiel, etc.).</small>
             </div>
             <div class="field"><label>Moyen de paiement</label>
               <select id="payMethod">
@@ -1404,6 +1470,7 @@ function pageMembreDetail(session, id){
               </select>
             </div>
             <div class="field"><label>Référence de transaction (optionnel)</label><input type="text" id="payRef" placeholder="Ex : TX123456"></div>
+            <div class="field"><label>Date</label><input type="date" id="payDate" value="${new Date().toISOString().slice(0,10)}"></div>
             <input type="hidden" id="payMemberId" value="${m.id}">
             <button type="submit" class="btn btn-primary btn-block">Déclarer le paiement</button>
           </form>
@@ -1430,7 +1497,7 @@ function memberPaymentsHtml(memberId){
       <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:var(--primary);border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:10px;">Historique des paiements déclarés</h3>
       ${payments.map(p=>`
         <div class="summary-row">
-          <span class="k">${fmtDate(p.date)} · ${p.type==='cotisation'?'Cotisation':'Adhésion'} · ${escapeHtml(p.method)}</span>
+          <span class="k">${fmtDate(p.date)} · ${paymentTypeLabel(p)} · ${escapeHtml(p.method)}</span>
           <span class="v">${fmtFCFA(p.amount)} ${statusBadge(p.status)}</span>
         </div>`).join('')}
     </div>`;
@@ -1440,7 +1507,16 @@ function updatePayAmountFromType(){
   const s = getSettings()||{};
   const type = document.getElementById('payType').value;
   const amountInput = document.getElementById('payAmount');
-  if(amountInput) amountInput.value = type==='cotisation' ? (s.montantCotisation||'') : (s.montantAdhesion||'');
+  const extraFields = document.getElementById('payExtraFields');
+  const hint = document.getElementById('payAmountHint');
+  if(extraFields) extraFields.style.display = type==='cotisation_extra' ? 'block' : 'none';
+  if(type==='cotisation_extra'){
+    if(amountInput) amountInput.value = '';
+    if(hint) hint.textContent = "Cotisation extraordinaire : pas de montant fixe, indiquez le montant réellement à verser.";
+  } else {
+    if(amountInput) amountInput.value = type==='cotisation' ? (s.montantCotisation||'') : (s.montantAdhesion||'');
+    if(hint) hint.textContent = "Montant obligatoire fixé par l'association dans Options — modifiable si besoin (paiement partiel, etc.).";
+  }
 }
 
 function declarePayment(session){
@@ -1449,17 +1525,28 @@ function declarePayment(session){
   const amount = Number(document.getElementById('payAmount').value);
   const method = document.getElementById('payMethod').value;
   const reference = document.getElementById('payRef').value.trim();
+  const date = document.getElementById('payDate').value || new Date().toISOString().slice(0,10);
+  const label = type==='cotisation_extra' ? document.getElementById('payExtraLabel').value.trim() : '';
   if(!amount){ toast('Veuillez indiquer un montant.'); return; }
+  if(type==='cotisation_extra' && !label){ toast('Veuillez indiquer le libellé de la cotisation extraordinaire.'); return; }
   const member = getMembers().find(m=>m.id===memberId);
   const payments = getPayments();
   payments.push({
     id: uid(), memberId, memberName: member ? `${member.prenom} ${member.nom}` : '—',
-    type, amount, method, reference, date: new Date().toISOString().slice(0,10),
+    type, label, amount, method, reference, date,
     status: 'en_attente', declaredBy: session.fullName, declaredAt: new Date().toISOString()
   });
   setPayments(payments);
   toast('Paiement déclaré. Il sera validé par le trésorier.');
   render();
+}
+
+// Libellé lisible du type de paiement, incluant le libellé personnalisé pour les cotisations extraordinaires
+function paymentTypeLabel(p){
+  if(p.type==='cotisation') return 'Cotisation';
+  if(p.type==='adhesion') return 'Adhésion';
+  if(p.type==='cotisation_extra') return `Cotisation extraordinaire — ${p.label||'Sans libellé'}`;
+  return p.type||'—';
 }
 
 function confirmPayment(id){
@@ -1474,24 +1561,15 @@ function confirmPayment(id){
   p.confirmedAt = new Date().toISOString();
   setPayments(payments);
 
-  // Mettre à jour le statut de cotisation du membre si applicable
-  if(p.type==='cotisation'){
-    const members = getMembers();
-    const mIdx = members.findIndex(m=>m.id===p.memberId);
-    if(mIdx>=0){
-      members[mIdx].cotisationStatus = 'a_jour';
-      members[mIdx].updatedBy = session.fullName;
-      members[mIdx].updatedAt = new Date().toISOString();
-      setMembers(members);
-    }
-  }
+  // Mettre à jour le statut de cotisation du membre si applicable (recalculé automatiquement
+  // à l'affichage à partir des paiements confirmés — voir isMemberCotisationAJour)
 
   // Enregistrer automatiquement comme recette en comptabilité
   const entries = getAccounting();
   const entryId = uid();
   entries.push({
     id: entryId, type:'recette', amount: p.amount, source: p.type,
-    description: `${p.type==='cotisation'?'Cotisation':'Adhésion'} — ${p.memberName} (${p.method})`,
+    description: `${paymentTypeLabel(p)} — ${p.memberName} (${p.method})`,
     date: p.date, recordedBy: session.fullName, recordedByRole: session.role, recordedAt: new Date().toISOString()
   });
   setAccounting(entries);
@@ -1604,7 +1682,7 @@ function saveEditedPayment(id){
     if(eIdx>=0){
       entries[eIdx].amount = p.amount;
       entries[eIdx].source = p.type;
-      entries[eIdx].description = `${p.type==='cotisation'?'Cotisation':'Adhésion'} — ${p.memberName} (${p.method})`;
+      entries[eIdx].description = `${paymentTypeLabel(p)} — ${p.memberName} (${p.method})`;
       entries[eIdx].date = p.date;
       setAccounting(entries);
     }
@@ -1619,7 +1697,9 @@ function updateRegisterAmountFromType(){
   const s = getSettings()||{};
   const type = document.getElementById('rpType').value;
   const amountInput = document.getElementById('rpAmount');
-  if(amountInput) amountInput.value = type==='cotisation' ? (s.montantCotisation||'') : (s.montantAdhesion||'');
+  const extraFields = document.getElementById('rpExtraFields');
+  if(extraFields) extraFields.style.display = type==='cotisation_extra' ? 'block' : 'none';
+  if(amountInput) amountInput.value = type==='cotisation_extra' ? '' : (type==='cotisation' ? (s.montantCotisation||'') : (s.montantAdhesion||''));
 }
 
 function registerPayment(session){
@@ -1628,39 +1708,32 @@ function registerPayment(session){
   const amount = Number(document.getElementById('rpAmount').value);
   const method = document.getElementById('rpMethod').value;
   const reference = document.getElementById('rpRef').value.trim();
+  const date = document.getElementById('rpDate').value || new Date().toISOString().slice(0,10);
+  const label = type==='cotisation_extra' ? document.getElementById('rpExtraLabel').value.trim() : '';
   if(!memberId){ toast('Veuillez choisir un membre.'); return; }
   if(!amount){ toast('Veuillez indiquer un montant.'); return; }
+  if(type==='cotisation_extra' && !label){ toast('Veuillez indiquer le libellé de la cotisation extraordinaire.'); return; }
   const member = getMembers().find(m=>m.id===memberId);
   const now = new Date().toISOString();
   const paymentId = uid();
   const entryId = uid();
   const payments = getPayments();
-  payments.push({
+  const paymentObj = {
     id: paymentId, memberId, memberName: member ? `${member.prenom} ${member.nom}` : '—',
-    type, amount, method, reference, date: now.slice(0,10),
+    type, label, amount, method, reference, date,
     status: 'confirme',
     declaredBy: session.fullName, declaredAt: now,
     confirmedBy: session.fullName, confirmedByRole: session.role, confirmedAt: now,
     accountingEntryId: entryId
-  });
+  };
+  payments.push(paymentObj);
   setPayments(payments);
-
-  if(type==='cotisation' && member){
-    const members = getMembers();
-    const mIdx = members.findIndex(m=>m.id===memberId);
-    if(mIdx>=0){
-      members[mIdx].cotisationStatus = 'a_jour';
-      members[mIdx].updatedBy = session.fullName;
-      members[mIdx].updatedAt = now;
-      setMembers(members);
-    }
-  }
 
   const entries = getAccounting();
   entries.push({
     id: entryId, type:'recette', amount, source: type,
-    description: `${type==='cotisation'?'Cotisation':'Adhésion'} — ${member?member.prenom+' '+member.nom:''} (${method})`,
-    date: now.slice(0,10), recordedBy: session.fullName, recordedByRole: session.role, recordedAt: now
+    description: `${paymentTypeLabel(paymentObj)} — ${member?member.prenom+' '+member.nom:''} (${method})`,
+    date, recordedBy: session.fullName, recordedByRole: session.role, recordedAt: now
   });
   setAccounting(entries);
 
@@ -1699,13 +1772,15 @@ function exportPaymentsHistoryPDF(){
   processed.forEach(p=>{
     if(p.status==='confirme') total += Number(p.amount||0);
     doc.setTextColor(27,43,34);
+    const typeLines = doc.splitTextToSize(paymentTypeLabel(p), 60);
+    let maxLines = typeLines.length;
     doc.text(fmtDate(p.date), colDate, y);
     doc.text(doc.splitTextToSize(p.memberName||'', 110), colMember, y);
-    doc.text(p.type==='cotisation'?'Cotisation':'Adhésion', colType, y);
+    doc.text(typeLines, colType, y);
     doc.text(p.status==='confirme'?'Confirmé':'Rejeté', colStatus, y);
     doc.text(doc.splitTextToSize(`${p.confirmedBy||'—'} (${p.confirmedByRole?roleLabel(p.confirmedByRole):'—'})`, 130), colBy, y);
     doc.text(fmtFCFA(p.amount), colAmount, y, {align:'right'});
-    y += 16;
+    y += 14 * maxLines + 4;
     if(y > 770){ doc.addPage(); y = 60; }
   });
 
@@ -1929,6 +2004,7 @@ function computeAccountingTotals(){
 
   const totalCotisations = sumBySource('cotisation');
   const totalAdhesions = sumBySource('adhesion');
+  const totalCotisationExtra = sumBySource('cotisation_extra');
   const totalDons = sumBySource('don');
   const totalBoutique = sumBySource('boutique');
   const totalRecettesManuelles = sumBySource('manuel');
@@ -1942,7 +2018,7 @@ function computeAccountingTotals(){
   const totalSorties = totalDepenses + totalAchats;
   const solde = totalRecettes - totalSorties;
 
-  return {cotisationsAJour, totalCotisations, totalAdhesions, totalDons, totalBoutique, totalRecettesManuelles, totalDepenses, totalAchats, totalRecettes, totalSorties, solde};
+  return {cotisationsAJour, totalCotisations, totalAdhesions, totalCotisationExtra, totalDons, totalBoutique, totalRecettesManuelles, totalDepenses, totalAchats, totalRecettes, totalSorties, solde};
 }
 
 function fmtFCFA(n){
@@ -1993,6 +2069,7 @@ function renderComptaTab(tab, session){
         <h3 style="margin-top:0;">Répartition</h3>
         <div class="summary-row"><span class="k">Cotisations</span><span class="v">${fmtFCFA(t.totalCotisations)}</span></div>
         <div class="summary-row"><span class="k">Adhésions</span><span class="v">${fmtFCFA(t.totalAdhesions)}</span></div>
+        <div class="summary-row"><span class="k">Cotisations extraordinaires</span><span class="v">${fmtFCFA(t.totalCotisationExtra)}</span></div>
         <div class="summary-row"><span class="k">Autres recettes</span><span class="v">${fmtFCFA(t.totalRecettesManuelles)}</span></div>
         <div class="summary-row"><span class="k">Dépenses</span><span class="v" style="color:var(--danger);">- ${fmtFCFA(t.totalDepenses)}</span></div>
         <div class="summary-row"><span class="k">Achats</span><span class="v" style="color:var(--danger);">- ${fmtFCFA(t.totalAchats)}</span></div>
@@ -2021,10 +2098,12 @@ function renderComptaTab(tab, session){
           </div>
           <div class="field"><label>Type</label>
             <select id="rpType" onchange="updateRegisterAmountFromType()">
-              <option value="cotisation">Cotisation</option>
+              <option value="cotisation">Cotisation (mensuelle)</option>
               <option value="adhesion">Adhésion</option>
+              <option value="cotisation_extra">Cotisation extraordinaire</option>
             </select>
           </div>
+          <div class="field" id="rpExtraFields" style="display:none;"><label>Libellé de la cotisation extraordinaire</label><input type="text" id="rpExtraLabel" placeholder="Ex : Cotisation urgence toiture"></div>
           <div class="field"><label>Montant (FCFA)</label><input type="number" id="rpAmount" min="0" value="${settingsForPay.montantCotisation||''}" required></div>
           <div class="field"><label>Moyen de paiement</label>
             <select id="rpMethod">
@@ -2035,6 +2114,7 @@ function renderComptaTab(tab, session){
               <option value="Espèces">Espèces</option>
             </select>
           </div>
+          <div class="field"><label>Date</label><input type="date" id="rpDate" value="${new Date().toISOString().slice(0,10)}"></div>
         </div>
         <div class="field"><label>Référence (optionnel)</label><input type="text" id="rpRef" placeholder="Ex : TX123456"></div>
         <button type="submit" class="btn btn-primary">${ICONS.plus} Enregistrer et confirmer</button>
@@ -2044,7 +2124,7 @@ function renderComptaTab(tab, session){
       <h3 style="margin-top:0;">Paiements en attente de validation</h3>
       ${pending.length ? pending.map(p=>`
         <div class="summary-row" style="align-items:center;">
-          <span class="k">${fmtDate(p.date)} · ${escapeHtml(p.memberName)} · ${p.type==='cotisation'?'Cotisation':'Adhésion'} · ${escapeHtml(p.method)}${p.reference?' · Réf: '+escapeHtml(p.reference):''}</span>
+          <span class="k">${fmtDate(p.date)} · ${escapeHtml(p.memberName)} · ${paymentTypeLabel(p)} · ${escapeHtml(p.method)}${p.reference?' · Réf: '+escapeHtml(p.reference):''}</span>
           <span class="v" style="display:flex;gap:8px;align-items:center;">
             ${fmtFCFA(p.amount)}
             <button class="btn btn-primary btn-sm" onclick="confirmPayment('${p.id}')">Confirmer</button>
@@ -2054,6 +2134,7 @@ function renderComptaTab(tab, session){
           </span>
         </div>`).join('') : `<div style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun paiement en attente.</div>`}
     </div>
+    ${renderCotisationExtraTracker()}
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <h3 style="margin:0;">Historique des paiements traités</h3>
@@ -2067,7 +2148,7 @@ function renderComptaTab(tab, session){
             <tr>
               <td>${fmtDate(p.date)}</td>
               <td>${escapeHtml(p.memberName)}</td>
-              <td>${p.type==='cotisation'?'Cotisation':'Adhésion'}</td>
+              <td>${paymentTypeLabel(p)}</td>
               <td>${fmtFCFA(p.amount)}</td>
               <td>${p.status==='confirme'?`<span class="badge badge-ok">Confirmé</span>`:`<span class="badge badge-warn" style="background:#F7DADA;color:var(--danger);">Rejeté</span>`}</td>
               <td>${escapeHtml(p.confirmedBy||'—')} ${p.confirmedByRole?`<span style="color:var(--ink-soft);font-size:11.5px;">(${roleLabel(p.confirmedByRole)})</span>`:''}</td>
@@ -3457,7 +3538,7 @@ function renderOptionsPanel(){
   const users = getUsers();
   const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
   return `
-    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-07-E)</span></p></div>
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-08-A)</span></p></div>
     ${lockedWarn}
     <div class="tabs" id="optTabs">
       <button data-tab="identite" class="active">Identité de l'association</button>
