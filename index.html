@@ -959,7 +959,7 @@ const NAV_ITEMS = [
   {key:'membres', label:'Membres', icon:'members', color:'#7FD9B9', roles:['createur','admin','tresoriere','membre']},
   {key:'comptabilite', label:'Comptabilité', icon:'wallet', color:'#8FB8F6', roles:['createur','tresoriere']},
   {key:'dons', label:'Dons & collecte', icon:'gift', color:'#F2A46F', roles:['createur','admin','tresoriere','membre']},
-  {key:'boutique', label:'Boutique', icon:'shop', color:'#C9A6F0', roles:['createur','admin','membre']},
+  {key:'boutique', label:'Boutique', icon:'shop', color:'#C9A6F0', roles:['createur','admin','tresoriere','membre']},
   {key:'actualites', label:'Actualités', icon:'news', color:'#6FD1E0', roles:['createur','admin','tresoriere','membre']},
   {key:'forum', label:'Messagerie', icon:'chat', color:'#F6C9DE', roles:['createur','admin','tresoriere','membre']},
   {key:'calendrier', label:'Calendrier', icon:'calendar', color:'#F2E36F', roles:['createur','admin','tresoriere','membre']},
@@ -1034,7 +1034,7 @@ function renderLogin(){
         <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
         <div class="login-error" id="loginError"></div>
       </form>
-      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-08-B</span></div>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-08-D</span></div>
     </div>
   </div>`;
 }
@@ -1591,6 +1591,7 @@ function paymentTypeLabel(p){
   if(p.type==='cotisation') return 'Cotisation';
   if(p.type==='adhesion') return 'Adhésion';
   if(p.type==='cotisation_extra') return `Cotisation extraordinaire — ${p.label||'Sans libellé'}`;
+  if(p.type==='boutique') return `Boutique — ${p.productName||''} x${p.quantity||1}`;
   return p.type||'—';
 }
 
@@ -1676,6 +1677,8 @@ function editPayment(id){
         <select id="editPayType">
           <option value="cotisation" ${p.type==='cotisation'?'selected':''}>Cotisation</option>
           <option value="adhesion" ${p.type==='adhesion'?'selected':''}>Adhésion</option>
+          <option value="cotisation_extra" ${p.type==='cotisation_extra'?'selected':''}>Cotisation extraordinaire${p.label?' — '+escapeHtml(p.label):''}</option>
+          <option value="boutique" ${p.type==='boutique'?'selected':''}>Boutique${p.productName?' — '+escapeHtml(p.productName):''}</option>
         </select>
       </div>
       <div class="field"><label>Montant (FCFA)</label><input type="number" id="editPayAmount" min="0" value="${p.amount}"></div>
@@ -2093,6 +2096,20 @@ function pageComptabilite(session){
   `;
 }
 
+function renderPaymentsHistoryRows(list){
+  return list.length ? list.map(p=>`
+            <tr>
+              <td>${fmtDate(p.date)}</td>
+              <td>${escapeHtml(p.memberName)}</td>
+              <td>${paymentTypeLabel(p)}</td>
+              <td>${fmtFCFA(p.amount)}</td>
+              <td>${p.status==='confirme'?`<span class="badge badge-ok">Confirmé</span>`:`<span class="badge badge-warn" style="background:#F7DADA;color:var(--danger);">Rejeté</span>`}</td>
+              <td>${escapeHtml(p.confirmedBy||'—')} ${p.confirmedByRole?`<span style="color:var(--ink-soft);font-size:11.5px;">(${roleLabel(p.confirmedByRole)})</span>`:''}</td>
+              <td style="color:var(--ink-soft);font-size:12.5px;">${p.confirmedAt?fmtDateTime(p.confirmedAt):'—'}</td>
+              <td style="display:flex;gap:6px;"><button class="btn btn-edit btn-sm" onclick="editPayment('${p.id}')">Modifier</button><button class="btn btn-danger btn-sm" onclick="deletePayment('${p.id}')">${ICONS.trash} Supprimer</button></td>
+            </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun résultat.</td></tr>`;
+}
+
 function renderComptaTab(tab, session){
   const t = computeAccountingTotals();
   if(tab==='apercu'){
@@ -2122,7 +2139,8 @@ function renderComptaTab(tab, session){
       </div>
     </div>`;
   }
-  if(tab==='paiements'){
+
+if(tab==='paiements'){
     const settingsForPay = getSettings()||{};
     const members = getMembers();
     const payments = getPayments().slice().reverse();
@@ -2186,20 +2204,14 @@ function renderComptaTab(tab, session){
         <button class="btn btn-accent" onclick="exportPaymentsHistoryPDF()">${ICONS.pdf} Télécharger l'historique (PDF)</button>
       </div>
       ${periodFilterHtml('paiements', allProcessed, 'date')}
+      <div class="field" style="max-width:320px;">
+        <label>Rechercher un membre</label>
+        <input type="text" id="paymentsHistorySearch" placeholder="Nom ou prénom...">
+      </div>
       <div class="table-scroll"><table style="margin-top:14px;">
         <thead><tr><th>Date</th><th>Membre</th><th>Type</th><th>Montant</th><th>Statut</th><th>Enregistré par</th><th>Heure</th><th></th></tr></thead>
-        <tbody>
-          ${others.length ? others.map(p=>`
-            <tr>
-              <td>${fmtDate(p.date)}</td>
-              <td>${escapeHtml(p.memberName)}</td>
-              <td>${paymentTypeLabel(p)}</td>
-              <td>${fmtFCFA(p.amount)}</td>
-              <td>${p.status==='confirme'?`<span class="badge badge-ok">Confirmé</span>`:`<span class="badge badge-warn" style="background:#F7DADA;color:var(--danger);">Rejeté</span>`}</td>
-              <td>${escapeHtml(p.confirmedBy||'—')} ${p.confirmedByRole?`<span style="color:var(--ink-soft);font-size:11.5px;">(${roleLabel(p.confirmedByRole)})</span>`:''}</td>
-              <td style="color:var(--ink-soft);font-size:12.5px;">${p.confirmedAt?fmtDateTime(p.confirmedAt):'—'}</td>
-              <td style="display:flex;gap:6px;"><button class="btn btn-edit btn-sm" onclick="editPayment('${p.id}')">Modifier</button><button class="btn btn-danger btn-sm" onclick="deletePayment('${p.id}')">${ICONS.trash} Supprimer</button></td>
-            </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucun historique.</td></tr>`}
+        <tbody id="paymentsHistoryBody">
+          ${renderPaymentsHistoryRows(others)}
         </tbody>
       </table></div>
     </div>`;
@@ -2496,6 +2508,9 @@ function exportRecettesPDF(){
 /* ================= PHASE 3 : rôles autorisés à publier/administrer ================= */
 const STAFF_ROLES = ['createur','admin','tresoriere'];
 function isStaff(session){ return STAFF_ROLES.includes(session.role); }
+// La gestion des produits de la boutique (ajouter/modifier/supprimer) est réservée
+// au créateur et à la trésorerie — l'administrateur n'a que la lecture, comme les autres.
+function canManageBoutique(session){ return ['createur','tresoriere'].includes(session.role); }
 
 /* ================= ACTUALITÉS & BLOG ================= */
 function pageActualites(session){
@@ -3298,13 +3313,13 @@ function exportDonationsHistoryPDF(){
 let boutiqueTab = 'produits';
 
 function pageBoutique(session){
-  const orders = getOrders();
+  const pendingCount = getPayments().filter(p=>p.type==='boutique' && p.status==='en_attente' && p.memberId===session.userId).length;
   return `
     <div class="page-head"><h1>Boutique en ligne</h1><p>Produits dérivés de l'association pour financer ses actions.</p></div>
     <div class="tabs" id="boutiqueTabs">
       <button data-tab="produits" class="${boutiqueTab==='produits'?'active':''}">Produits</button>
-      <button data-tab="mes-commandes" class="${boutiqueTab==='mes-commandes'?'active':''}">Mes commandes</button>
-      ${isStaff(session) ? `<button data-tab="gestion-commandes" class="${boutiqueTab==='gestion-commandes'?'active':''}">Commandes${orders.filter(o=>o.status==='en_attente').length?` (${orders.filter(o=>o.status==='en_attente').length})`:''}</button>` : ''}
+      <button data-tab="declarer" class="${boutiqueTab==='declarer'?'active':''}">Déclarer un paiement</button>
+      <button data-tab="mes-achats" class="${boutiqueTab==='mes-achats'?'active':''}">Mes achats</button>
     </div>
     <div id="boutiqueContent">${renderBoutiqueTab(boutiqueTab, session)}</div>
   `;
@@ -3312,11 +3327,11 @@ function pageBoutique(session){
 
 function renderBoutiqueTab(tab, session){
   const products = getProducts();
-  const orders = getOrders();
 
   if(tab==='produits'){
+    const manage = canManageBoutique(session);
     return `
-      ${isStaff(session) ? `
+      ${manage ? `
       <div class="card">
         <h3 style="margin-top:0;">Ajouter un produit</h3>
         <form id="productForm">
@@ -3326,7 +3341,7 @@ function renderBoutiqueTab(tab, session){
           </div>
           <div class="field"><label>Description</label><input type="text" id="prodDesc" placeholder="Détails du produit"></div>
           <label class="file-drop" id="dropProduct">
-            <span class="file-drop-content">Cliquer pour ajouter une photo (optionnel)</span>
+            <span class="file-drop-content">Cliquer pour ajouter une photo du produit</span>
             <input type="file" id="prodImage" accept="image/*">
           </label>
           <div style="height:10px;"></div>
@@ -3334,118 +3349,202 @@ function renderBoutiqueTab(tab, session){
         </form>
       </div>` : ''}
       <div class="grid grid-3" id="productGrid">
-        ${products.length ? products.map(p=>productCardHtml(p, session)).join('') : `<div class="card" style="grid-column:1/-1;text-align:center;color:var(--ink-soft);padding:30px;">Aucun produit pour le moment.</div>`}
+        ${products.length ? products.map(p=>productCardHtml(p, session)).join('') : `<div class="card" style="grid-column:1/-1;text-align:center;color:var(--ink-soft);padding:30px;">Aucun article en vente pour le moment.</div>`}
       </div>`;
   }
 
-  if(tab==='mes-commandes'){
-    const mine = orders.filter(o=>o.buyerName===session.fullName).slice().reverse();
+  if(tab==='declarer'){
     return `
-    <div class="card">
-      <div class="table-scroll"><table>
-        <thead><tr><th>Date</th><th>Produit</th><th>Qté</th><th>Total</th><th>Statut</th></tr></thead>
-        <tbody>
-          ${mine.length ? mine.map(o=>`
-            <tr>
-              <td>${fmtDate(o.date)}</td>
-              <td>${escapeHtml(o.productName)}</td>
-              <td>${o.quantity}</td>
-              <td>${fmtFCFA(o.totalAmount)}</td>
-              <td>${orderStatusBadge(o.status)}</td>
-            </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);padding:20px;">Vous n'avez pas encore commandé.</td></tr>`}
-        </tbody>
-      </table></div>
+    <div class="card" style="max-width:520px;">
+      <h3 style="margin-top:0;">Déclarer un paiement</h3>
+      <p style="color:var(--ink-soft);font-size:13px;margin-top:-6px;">Après avoir payé un article auprès de la trésorerie (ou envoyé l'argent sur l'un des numéros de collecte), déclarez votre paiement ici. Il sera confirmé par la trésorerie et l'argent sera alors versé en caisse.</p>
+      <form id="boutiquePaymentForm">
+        <div class="field"><label>Article</label>
+          <select id="bpProduct" onchange="updateBoutiquePaymentAmount()" required>
+            <option value="">Choisir…</option>
+            ${products.map(p=>`<option value="${p.id}" data-price="${p.price}">${escapeHtml(p.name)} — ${fmtFCFA(p.price)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="grid grid-2">
+          <div class="field"><label>Quantité</label><input type="number" id="bpQuantity" min="1" value="1" onchange="updateBoutiquePaymentAmount()"></div>
+          <div class="field"><label>Montant total (FCFA)</label><input type="number" id="bpAmount" min="0" required></div>
+        </div>
+        <div class="field"><label>Moyen de paiement</label>
+          <select id="bpMethod">
+            <option value="Orange Money">Orange Money</option>
+            <option value="Moov Money">Moov Money</option>
+            <option value="MTN Money">MTN Money</option>
+            <option value="Wave">Wave</option>
+            <option value="Espèces">Espèces</option>
+          </select>
+        </div>
+        <div class="field"><label>Référence (optionnel)</label><input type="text" id="bpRef" placeholder="Ex : TX123456"></div>
+        <div class="field"><label>Date</label><input type="date" id="bpDate" value="${new Date().toISOString().slice(0,10)}"></div>
+        <button type="submit" class="btn btn-primary btn-block">Déclarer le paiement</button>
+      </form>
     </div>`;
   }
 
-  if(tab==='gestion-commandes'){
-    const all = orders.slice().reverse();
+  if(tab==='mes-achats'){
+    const mine = getPayments().filter(p=>p.type==='boutique' && (p.memberId===session.userId || p.memberName===session.fullName)).slice().reverse();
     return `
     <div class="card">
-      <div class="table-scroll"><table>
-        <thead><tr><th>Date</th><th>Acheteur</th><th>Produit</th><th>Qté</th><th>Total</th><th>Statut</th><th></th></tr></thead>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">Mes achats</h3>
+        <button class="btn btn-accent" onclick="exportMesAchatsPDF()">${ICONS.pdf} Télécharger (PDF)</button>
+      </div>
+      <div class="table-scroll" style="margin-top:14px;"><table>
+        <thead><tr><th>Date</th><th>Article</th><th>Qté</th><th>Montant</th><th>Statut</th></tr></thead>
         <tbody>
-          ${all.length ? all.map(o=>`
+          ${mine.length ? mine.map(p=>`
             <tr>
-              <td>${fmtDate(o.date)}</td>
-              <td>${escapeHtml(o.buyerName)}</td>
-              <td>${escapeHtml(o.productName)}</td>
-              <td>${o.quantity}</td>
-              <td>${fmtFCFA(o.totalAmount)}</td>
-              <td>${orderStatusBadge(o.status)}</td>
-              <td style="display:flex;gap:6px;">
-                ${o.status==='en_attente' ? `<button class="btn btn-primary btn-sm" onclick="confirmOrder('${o.id}')">Confirmer</button><button class="btn btn-danger btn-sm" onclick="cancelOrder('${o.id}')">Annuler</button>` : ''}
-              </td>
-            </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune commande pour le moment.</td></tr>`}
+              <td>${fmtDate(p.date)}</td>
+              <td>${escapeHtml(p.productName||'—')}</td>
+              <td>${p.quantity||1}</td>
+              <td>${fmtFCFA(p.amount)}</td>
+              <td>${p.status==='confirme'?`<span class="badge badge-ok">Confirmé</span>`:p.status==='rejete'?`<span class="badge badge-warn" style="background:#F7DADA;color:var(--danger);">Rejeté</span>`:`<span class="badge badge-warn">En attente</span>`}</td>
+            </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);padding:20px;">Vous n'avez pas encore déclaré d'achat.</td></tr>`}
         </tbody>
       </table></div>
     </div>`;
   }
   return '';
 }
-function orderStatusBadge(status){
-  if(status==='confirme') return `<span class="badge badge-ok">Confirmée</span>`;
-  if(status==='annule') return `<span class="badge badge-warn" style="background:#F7DADA;color:var(--danger);">Annulée</span>`;
-  return `<span class="badge badge-warn">En attente</span>`;
-}
 function productCardHtml(p, session){
+  const manage = canManageBoutique(session);
   return `
   <div class="card" style="padding:12px;">
     ${p.image ? `<img src="${p.image}" style="width:100%;height:140px;object-fit:cover;border-radius:10px;margin-bottom:8px;">` : ''}
     <div style="font-weight:700;font-size:15px;">${escapeHtml(p.name)}</div>
     ${p.description ? `<div style="font-size:12.5px;color:var(--ink-soft);margin:4px 0;">${escapeHtml(p.description)}</div>` : ''}
     <div style="font-weight:700;color:var(--primary);font-size:16px;margin:6px 0;">${fmtFCFA(p.price)}</div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <input type="number" id="qty_${p.id}" value="1" min="1" style="width:60px;padding:8px;border-radius:8px;border:1.5px solid var(--border);">
-      <button class="btn btn-primary btn-sm" onclick="orderProduct('${p.id}')">Commander</button>
-    </div>
-    ${isStaff(session) ? `<button class="btn btn-danger btn-sm" style="margin-top:8px;" onclick="deleteProduct('${p.id}')">${ICONS.trash} Supprimer</button>` : ''}
+    ${manage ? `
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-edit btn-sm" onclick="editProduct('${p.id}')">Modifier</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">${ICONS.trash} Supprimer</button>
+      </div>` : ''}
   </div>`;
 }
-function orderProduct(productId){
+function updateBoutiquePaymentAmount(){
+  const select = document.getElementById('bpProduct');
+  const opt = select.options[select.selectedIndex];
+  const price = Number(opt?.dataset.price || 0);
+  const qty = Math.max(1, Number(document.getElementById('bpQuantity').value)||1);
+  document.getElementById('bpAmount').value = price*qty || '';
+}
+function declareBoutiquePayment(session){
+  const productId = document.getElementById('bpProduct').value;
   const product = getProducts().find(p=>p.id===productId);
-  if(!product) return;
-  const qtyInput = document.getElementById('qty_'+productId);
-  const quantity = Math.max(1, Number(qtyInput.value)||1);
-  const session = getSession();
-  const orders = getOrders();
-  orders.push({
-    id: uid(), productId, productName: product.name, quantity,
-    totalAmount: product.price*quantity, buyerName: session.fullName,
-    date: new Date().toISOString().slice(0,10), status:'en_attente', createdAt: new Date().toISOString()
+  if(!product){ toast('Veuillez choisir un article.'); return; }
+  const quantity = Math.max(1, Number(document.getElementById('bpQuantity').value)||1);
+  const amount = Number(document.getElementById('bpAmount').value);
+  const method = document.getElementById('bpMethod').value;
+  const reference = document.getElementById('bpRef').value.trim();
+  const date = document.getElementById('bpDate').value || new Date().toISOString().slice(0,10);
+  if(!amount){ toast('Veuillez indiquer un montant.'); return; }
+  const payments = getPayments();
+  payments.push({
+    id: uid(), memberId: session.userId, memberName: session.fullName,
+    type:'boutique', productId, productName: product.name, quantity,
+    amount, method, reference, date,
+    status:'en_attente', declaredBy: session.fullName, declaredAt: new Date().toISOString()
   });
-  setOrders(orders);
-  toast('Commande enregistrée. Le trésorier vous contactera pour le paiement.');
+  setPayments(payments);
+  toast('Paiement déclaré. Il sera confirmé par la trésorerie.');
   render();
 }
-function confirmOrder(id){
-  const orders = getOrders();
-  const idx = orders.findIndex(o=>o.id===id);
+function editProduct(id){
+  const p = getProducts().find(x=>x.id===id);
+  if(!p) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-backdrop';
+  overlay.id = 'editProductOverlay';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px;">
+      <h2>Modifier le produit</h2>
+      <div class="field"><label>Nom</label><input type="text" id="editProdName" value="${escapeHtml(p.name)}"></div>
+      <div class="field"><label>Prix (FCFA)</label><input type="number" id="editProdPrice" min="0" value="${p.price}"></div>
+      <div class="field"><label>Description</label><input type="text" id="editProdDesc" value="${escapeHtml(p.description||'')}"></div>
+      <label class="file-drop ${p.image?'has-file':''}" id="dropEditProduct">
+        <span class="file-drop-content">${p.image?`<img src="${p.image}" class="file-thumb">Photo actuelle — cliquer pour changer`:'Cliquer pour ajouter une photo'}</span>
+        <input type="file" id="editProdImage" accept="image/*">
+      </label>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <button class="btn btn-primary" onclick="saveEditedProduct('${id}')">Enregistrer</button>
+        <button class="btn btn-ghost" onclick="closeEditProductModal()">Annuler</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', ev=>{ if(ev.target===overlay) closeEditProductModal(); });
+  document.body.appendChild(overlay);
+  wireFilePreview('editProdImage', 'dropEditProduct');
+}
+function closeEditProductModal(){
+  const el = document.getElementById('editProductOverlay');
+  if(el) el.remove();
+}
+async function saveEditedProduct(id){
+  const products = getProducts();
+  const idx = products.findIndex(p=>p.id===id);
   if(idx<0) return;
-  const o = orders[idx];
+  products[idx].name = document.getElementById('editProdName').value.trim();
+  products[idx].price = Number(document.getElementById('editProdPrice').value)||0;
+  products[idx].description = document.getElementById('editProdDesc').value.trim();
+  const imageInput = document.getElementById('editProdImage');
+  if(imageInput.files[0]){
+    try{ products[idx].image = await compressImageFile(imageInput.files[0], 800, 0.75); }catch(e){}
+  }
+  setProducts(products);
+  closeEditProductModal();
+  toast('Produit modifié.');
+  render();
+}
+function exportMesAchatsPDF(){
   const session = getSession();
-  o.status = 'confirme';
-  setOrders(orders);
-  const entries = getAccounting();
-  entries.push({
-    id: uid(), type:'recette', amount: o.totalAmount, source: 'boutique',
-    description: `Vente boutique — ${o.productName} x${o.quantity} (${o.buyerName})`,
-    date: o.date, recordedBy: session.fullName, recordedAt: new Date().toISOString()
+  const mine = getPayments().filter(p=>p.type==='boutique' && (p.memberId===session.userId || p.memberName===session.fullName)).slice().reverse();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  let {y, margin, pageWidth} = pdfDrawHeader(doc, `Mes achats — ${session.fullName}`);
+
+  const colDate = margin, colProduct = margin+70, colQty = margin+260, colStatus = pageWidth-margin-100, colAmount = pageWidth-margin;
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(90,100,95);
+  doc.text('Date', colDate, y);
+  doc.text('Article', colProduct, y);
+  doc.text('Qté', colQty, y);
+  doc.text('Statut', colStatus, y);
+  doc.text('Montant', colAmount, y, {align:'right'});
+  y += 8;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 16;
+
+  let total = 0;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+  if(!mine.length){
+    doc.setTextColor(140,140,140);
+    doc.text("Vous n'avez pas encore déclaré d'achat.", margin, y);
+    y += 18;
+  }
+  mine.forEach(p=>{
+    if(p.status==='confirme') total += Number(p.amount||0);
+    doc.setTextColor(27,43,34);
+    doc.text(fmtDate(p.date), colDate, y);
+    doc.text(doc.splitTextToSize(p.productName||'—', 180), colProduct, y);
+    doc.text(String(p.quantity||1), colQty, y);
+    doc.text(p.status==='confirme'?'Confirmé':p.status==='rejete'?'Rejeté':'En attente', colStatus, y);
+    doc.text(fmtFCFA(p.amount), colAmount, y, {align:'right'});
+    y += 16;
+    if(y > 770){ doc.addPage(); y = 60; }
   });
-  setAccounting(entries);
-  toast('Commande confirmée et enregistrée en comptabilité.');
-  render();
+
+  y += 10;
+  doc.setDrawColor(226,223,209); doc.line(margin, y, pageWidth-margin, y);
+  y += 18;
+  doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(21,51,39);
+  doc.text('Total confirmé', colProduct, y);
+  doc.text(fmtFCFA(total), colAmount, y, {align:'right'});
+
+  doc.save('mes_achats.pdf');
 }
-function cancelOrder(id){
-  if(!confirm('Annuler cette commande ?')) return;
-  const orders = getOrders();
-  const idx = orders.findIndex(o=>o.id===id);
-  if(idx<0) return;
-  orders[idx].status = 'annule';
-  setOrders(orders);
-  toast('Commande annulée.');
-  render();
-}
+
 function deleteProduct(id){
   if(!confirm('Supprimer ce produit ?')) return;
   setProducts(getProducts().filter(p=>p.id!==id));
@@ -3583,7 +3682,7 @@ function renderOptionsPanel(){
   const users = getUsers();
   const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
   return `
-    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-08-B)</span></p></div>
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-08-D)</span></p></div>
     ${lockedWarn}
     <div class="tabs" id="optTabs">
       <button data-tab="identite" class="active">Identité de l'association</button>
@@ -3921,6 +4020,13 @@ function attachPageEvents(path, session){
         render();
       });
     }
+    const boutiquePaymentForm = document.getElementById('boutiquePaymentForm');
+    if(boutiquePaymentForm){
+      boutiquePaymentForm.addEventListener('submit', e=>{
+        e.preventDefault();
+        declareBoutiquePayment(session);
+      });
+    }
     return;
   }
   if(path==='actualites'){
@@ -4030,6 +4136,16 @@ function attachPageEvents(path, session){
       registerPaymentForm.addEventListener('submit', e=>{
         e.preventDefault();
         registerPayment(session);
+      });
+    }
+    const paymentsSearch = document.getElementById('paymentsHistorySearch');
+    if(paymentsSearch){
+      paymentsSearch.addEventListener('input', ()=>{
+        const q = paymentsSearch.value.toLowerCase();
+        const allProcessed = getPayments().filter(p=>p.status!=='en_attente');
+        const periodFiltered = filterByPeriod(allProcessed, 'date', 'paiements').slice().reverse();
+        const results = q ? periodFiltered.filter(p=>(p.memberName||'').toLowerCase().includes(q)) : periodFiltered;
+        document.getElementById('paymentsHistoryBody').innerHTML = renderPaymentsHistoryRows(results);
       });
     }
     const mouvForm = document.getElementById('mouvForm');
