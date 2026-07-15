@@ -814,26 +814,8 @@ function updateAppIcons(){
     const titleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
     if(titleMeta) titleMeta.setAttribute('content', name);
     document.title = name;
-
-    const pageUrl = location.origin + location.pathname;
-    const scopeUrl = pageUrl.replace(/[^\/]*$/, '');
-    const manifest = {
-      name: name,
-      short_name: name.slice(0, 20),
-      start_url: pageUrl,
-      scope: scopeUrl,
-      display: 'standalone',
-      background_color: '#0E1F3A',
-      theme_color: '#0E1F3A',
-      icons: [
-        {src: logo, sizes: '192x192', type: 'image/jpeg', purpose: 'any maskable'},
-        {src: logo, sizes: '512x512', type: 'image/jpeg', purpose: 'any maskable'}
-      ]
-    };
-    const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    const manifestLink = document.getElementById('webManifest');
-    if(manifestLink) manifestLink.href = url;
+    // Le manifeste (webManifest) reste volontairement fixe (manifest.json) :
+    // le générer dynamiquement en blob empêchait Chrome de proposer l'installation.
   }catch(e){ console.warn('Icon update error', e); }
 }
 
