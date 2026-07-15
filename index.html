@@ -815,10 +815,13 @@ function updateAppIcons(){
     if(titleMeta) titleMeta.setAttribute('content', name);
     document.title = name;
 
+    const pageUrl = location.origin + location.pathname;
+    const scopeUrl = pageUrl.replace(/[^\/]*$/, '');
     const manifest = {
       name: name,
       short_name: name.slice(0, 20),
-      start_url: '.',
+      start_url: pageUrl,
+      scope: scopeUrl,
       display: 'standalone',
       background_color: '#0E1F3A',
       theme_color: '#0E1F3A',
