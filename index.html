@@ -10,8 +10,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta id="themeColorMeta" name="theme-color" content="#0E1F3A">
 <link rel="icon" id="favicon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%2321503C%22/><text x=%2250%22 y=%2266%22 font-size=%2255%22 text-anchor=%22middle%22 fill=%22%23C9932F%22 font-family=%22serif%22>A</text></svg>">
-<link rel="apple-touch-icon" id="appleTouchIcon" href="icon-192.png">
-<link rel="manifest" id="webManifest" href="manifest.json">
+<link rel="apple-touch-icon" id="appleTouchIcon" href="">
+<link rel="manifest" id="webManifest" href="">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -814,8 +814,23 @@ function updateAppIcons(){
     const titleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
     if(titleMeta) titleMeta.setAttribute('content', name);
     document.title = name;
-    // Le manifeste (webManifest) reste volontairement fixe (manifest.json) :
-    // le générer dynamiquement en blob empêchait Chrome de proposer l'installation.
+
+    const manifest = {
+      name: name,
+      short_name: name.slice(0, 20),
+      start_url: '.',
+      display: 'standalone',
+      background_color: '#0E1F3A',
+      theme_color: '#0E1F3A',
+      icons: [
+        {src: logo, sizes: '192x192', type: 'image/jpeg', purpose: 'any maskable'},
+        {src: logo, sizes: '512x512', type: 'image/jpeg', purpose: 'any maskable'}
+      ]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const manifestLink = document.getElementById('webManifest');
+    if(manifestLink) manifestLink.href = url;
   }catch(e){ console.warn('Icon update error', e); }
 }
 
@@ -891,9 +906,6 @@ function isExpiryUnset(){
 /* ---------------- Router ---------------- */
 window.addEventListener('hashchange', render);
 window.addEventListener('DOMContentLoaded', ()=>{
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('service-worker.js').catch(e=>console.warn('SW non enregistré', e));
-  }
   bootstrap();
   updateAppIcons();
   // La connexion est obligatoire à chaque ouverture de l'application :
@@ -1006,7 +1018,7 @@ function renderLogin(){
   const s = getSettings() || {};
   return `
   <div class="login-screen">
-    <div class="login-card">
+    <div class="login-card" id="loginCardMain">
       <div class="login-emblem"><img src="${DEFAULT_LOGO}" alt="logo"></div>
       <h1>${escapeHtml(s.assocName || 'Mon Association')}</h1>
       <p class="sub">Connectez-vous pour accéder à l'espace de gestion</p>
@@ -1022,9 +1034,39 @@ function renderLogin(){
         <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
         <div class="login-error" id="loginError"></div>
       </form>
-      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-08-D</span></div>
+      <button type="button" onclick="showRecoveryForm()" style="background:none;border:none;color:var(--primary);font-size:12.5px;font-weight:600;margin-top:14px;cursor:pointer;">Mot de passe créateur oublié ?</button>
+      <div class="login-foot">Application de gestion associative — accès protégé<br><span style="opacity:.6;">Version 2026-07-09-A</span></div>
+    </div>
+    <div class="login-card hidden" id="recoveryCard" style="margin-top:16px;">
+      <h1 style="font-size:18px;">Réinitialiser le mot de passe créateur</h1>
+      <p class="sub">Entrez le code de récupération généré depuis Options → Sécurité.</p>
+      <form id="recoveryForm">
+        <div class="field">
+          <label>Nom d'utilisateur créateur</label>
+          <input type="text" id="recUser" required>
+        </div>
+        <div class="field">
+          <label>Code de récupération</label>
+          <input type="text" id="recCode" placeholder="XXXX-XXXX-XXXX" required>
+        </div>
+        <div class="field">
+          <label>Nouveau mot de passe</label>
+          <input type="password" id="recNewPass" required minlength="4">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Réinitialiser le mot de passe</button>
+        <div class="login-error" id="recoveryError"></div>
+      </form>
+      <button type="button" onclick="hideRecoveryForm()" style="background:none;border:none;color:var(--ink-soft);font-size:12.5px;margin-top:12px;cursor:pointer;">Retour à la connexion</button>
     </div>
   </div>`;
+}
+function showRecoveryForm(){
+  document.getElementById('loginCardMain').classList.add('hidden');
+  document.getElementById('recoveryCard').classList.remove('hidden');
+}
+function hideRecoveryForm(){
+  document.getElementById('recoveryCard').classList.add('hidden');
+  document.getElementById('loginCardMain').classList.remove('hidden');
 }
 function attachLoginEvents(){
   document.getElementById('loginForm').addEventListener('submit', e=>{
@@ -1043,6 +1085,31 @@ function attachLoginEvents(){
       errEl.textContent = "Nom d'utilisateur ou mot de passe incorrect.";
     }
   });
+  const recoveryForm = document.getElementById('recoveryForm');
+  if(recoveryForm){
+    recoveryForm.addEventListener('submit', e=>{
+      e.preventDefault();
+      const u = document.getElementById('recUser').value.trim();
+      const code = document.getElementById('recCode').value.trim().toUpperCase();
+      const newPass = document.getElementById('recNewPass').value;
+      const users = getUsers();
+      const idx = users.findIndex(x=>x.role==='createur' && x.username.toLowerCase()===u.toLowerCase());
+      const errEl = document.getElementById('recoveryError');
+      if(idx<0){
+        errEl.textContent = "Aucun compte créateur ne correspond à ce nom d'utilisateur.";
+        return;
+      }
+      if(!users[idx].recoveryCodeSet || (users[idx].recoveryCode||'').toUpperCase() !== code){
+        errEl.textContent = "Code de récupération incorrect.";
+        return;
+      }
+      users[idx].password = newPass;
+      setUsers(users);
+      errEl.textContent = '';
+      toast('Mot de passe réinitialisé. Vous pouvez vous connecter.');
+      hideRecoveryForm();
+    });
+  }
 }
 
 function renderLockScreen(){
@@ -1059,7 +1126,8 @@ function renderLockScreen(){
 
 function logout(){
   stopForumPresence();
-  localStorage.removeItem(LS.session);
+  try{ localStorage.removeItem(LS.session); }catch(e){}
+  delete memoryStore[LS.session];
   location.hash = '#/accueil';
   render();
 }
@@ -3670,7 +3738,7 @@ function renderOptionsPanel(){
   const users = getUsers();
   const lockedWarn = isExpiryUnset() ? `<div class="locked-banner">${ICONS.bell} Tant qu'aucune date d'utilisation n'est définie ci-dessous, les données saisies dans l'application ne seront pas considérées comme valides.</div>` : '';
   return `
-    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-08-D)</span></p></div>
+    <div class="page-head"><h1>Options</h1><p>Configuration réservée au créateur de l'application. <span style="opacity:.5;">(Version 2026-07-09-A)</span></p></div>
     ${lockedWarn}
     <div class="tabs" id="optTabs">
       <button data-tab="identite" class="active">Identité de l'association</button>
@@ -3679,6 +3747,7 @@ function renderOptionsPanel(){
       <button data-tab="acces">Droits d'accès</button>
       <button data-tab="sauvegarde">Sauvegarde</button>
       <button data-tab="notifications">Notifications</button>
+      <button data-tab="securite">Sécurité</button>
     </div>
 
     <div class="opt-panel" data-panel="identite">
@@ -3791,6 +3860,18 @@ function renderOptionsPanel(){
             <span class="k">${escapeHtml(a.message)}<br><span style="font-size:11px;color:var(--ink-soft);">${fmtDateTime(a.createdAt)}</span></span>
             <button class="btn btn-danger btn-sm" onclick="deleteAnnouncement('${a.id}')">${ICONS.trash} Retirer</button>
           </div>`).join('') || `<div style="text-align:center;color:var(--ink-soft);padding:20px;">Aucune notification publiée.</div>`}
+      </div>
+    </div>
+
+    <div class="opt-panel hidden" data-panel="securite">
+      <div class="card" style="max-width:560px;">
+        <h3 style="margin-top:0;">Code de récupération du mot de passe créateur</h3>
+        <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px;">Si vous perdez ou oubliez votre mot de passe créateur, ce code permettra d'en définir un nouveau depuis la page de connexion, sans avoir besoin de l'ancien.</p>
+        ${(()=>{ const creator = getUsers().find(u=>u.role==='createur'); return creator && creator.recoveryCodeSet
+          ? `<div class="locked-banner" style="background:#E3EEE6;">${ICONS.bell} Un code de récupération est déjà configuré.</div>`
+          : `<div class="locked-banner">${ICONS.bell} Aucun code de récupération n'est encore configuré — générez-en un dès maintenant par sécurité.</div>`; })()}
+        <button class="btn btn-primary" onclick="generateRecoveryCode()">${ICONS.plus} Générer un nouveau code de récupération</button>
+        <div id="recoveryCodeDisplay"></div>
       </div>
     </div>
   `;
@@ -3931,6 +4012,37 @@ function deleteAnnouncement(id){
   setAnnouncements(getAnnouncements().filter(a=>a.id!==id));
   toast('Notification retirée.');
   render();
+}
+
+/* ---- Code de récupération du mot de passe créateur ---- */
+function generateRandomCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sans caractères ambigus (0/O, 1/I)
+  let code = '';
+  for(let i=0;i<12;i++){
+    if(i>0 && i%4===0) code += '-';
+    code += chars[Math.floor(Math.random()*chars.length)];
+  }
+  return code;
+}
+function generateRecoveryCode(){
+  if(!confirm("Générer un nouveau code annulera l'ancien s'il existait. Continuer ?")) return;
+  const code = generateRandomCode();
+  const users = getUsers();
+  const idx = users.findIndex(u=>u.role==='createur');
+  if(idx<0){ toast('Aucun compte créateur trouvé.'); return; }
+  users[idx].recoveryCode = code;
+  users[idx].recoveryCodeSet = true;
+  setUsers(users);
+  const displayDiv = document.getElementById('recoveryCodeDisplay');
+  if(displayDiv){
+    displayDiv.innerHTML = `
+      <div style="margin-top:14px;padding:18px;border-radius:12px;background:var(--navy);color:#fff;text-align:center;">
+        <div style="font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;opacity:.75;margin-bottom:8px;">Votre code de récupération — à noter en lieu sûr</div>
+        <div style="font-family:monospace;font-size:22px;font-weight:700;letter-spacing:.05em;color:var(--accent);">${code}</div>
+        <div style="font-size:12px;opacity:.75;margin-top:10px;">Ce code ne sera plus jamais affiché en entier. Notez-le maintenant (papier, gestionnaire de mots de passe) avant de quitter cette page.</div>
+      </div>`;
+  }
+  toast('Code de récupération généré.');
 }
 
 /* ---------------- PAGE-LEVEL EVENT WIRING ---------------- */
